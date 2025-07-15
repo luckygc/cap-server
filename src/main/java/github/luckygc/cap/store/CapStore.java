@@ -1,4 +1,4 @@
-package github.luckygc.cap;
+package github.luckygc.cap.store;
 
 import github.luckygc.cap.model.CapToken;
 import github.luckygc.cap.model.ChallengeData;

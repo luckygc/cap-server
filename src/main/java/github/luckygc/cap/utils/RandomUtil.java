@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package github.luckygc.cap;
+package github.luckygc.cap.utils;
 
 import org.apache.commons.lang3.StringUtils;
 
