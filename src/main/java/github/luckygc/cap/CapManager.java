@@ -1,6 +1,6 @@
 package github.luckygc.cap;
 
-import github.luckygc.cap.model.CapConfig;
+import github.luckygc.cap.config.ChallengeConfig;
 import github.luckygc.cap.model.CapToken;
 import github.luckygc.cap.model.Challenge;
 import github.luckygc.cap.model.ChallengeData;
@@ -16,14 +16,15 @@ import org.apache.commons.lang3.StringUtils;
 
 public class CapManager {
 
+    /**
+     * 默认挑战成功后生成的token过期时间，2分钟
+     */
+    public static final long DEFAULT_CAP_TOKEN_EXPIRE_MS = 2 * 60 * 1000;
+
     private static final int CHALLENGE_TOKEN_BYTES_SIZE = 25;
     private static final int CAP_TOKEN_VER_TOKEN_BYTES_SIZE = 15;
     private static final int CAP_TOKEN_ID_BYTES_SIZE = 8;
     private static final String CAP_TOKEN_SEPARATOR = ":";
-    /**
-     * 默认挑战成功后生成的token过期时间，2分钟
-     */
-    private static final long DEFAULT_CAP_TOKEN_EXPIRE_MS = 2 * 60 * 1000;
 
     private final CapStore capStore;
 
@@ -31,12 +32,18 @@ public class CapManager {
         this.capStore = capStore;
     }
 
-    public ChallengeData createChallenge(CapConfig capConfig) {
+    /**
+     * 创建挑战
+     *
+     * @param challengeConfig 挑战配置
+     * @return 挑战数据
+     */
+    public ChallengeData createChallenge(ChallengeConfig challengeConfig) {
         capStore.cleanExpiredTokens();
 
         String token = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CHALLENGE_TOKEN_BYTES_SIZE));
-        long expires = System.currentTimeMillis() + capConfig.getChallengeExpireMs();
-        Challenge challenge = Challenge.of(capConfig);
+        long expires = System.currentTimeMillis() + challengeConfig.getChallengeExpireMs();
+        Challenge challenge = Challenge.of(challengeConfig);
         ChallengeData challengeData = new ChallengeData(token, challenge, expires);
         capStore.saveChallengeData(challengeData);
 

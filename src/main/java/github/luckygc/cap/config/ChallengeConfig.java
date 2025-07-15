@@ -1,6 +1,6 @@
-package github.luckygc.cap.model;
+package github.luckygc.cap.config;
 
-public class CapConfig {
+public class ChallengeConfig {
 
     /**
      * 生成的挑战数量

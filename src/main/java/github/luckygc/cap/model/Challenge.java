@@ -1,5 +1,7 @@
 package github.luckygc.cap.model;
 
+import github.luckygc.cap.config.ChallengeConfig;
+
 /**
  * @param c 挑战数量
  * @param s 挑战长度
@@ -7,7 +9,7 @@ package github.luckygc.cap.model;
  */
 public record Challenge(int c, int s, int d) {
 
-    public static Challenge of(CapConfig config) {
+    public static Challenge of(ChallengeConfig config) {
         return new Challenge(config.getChallengeCount(), config.getChallengeSize(), config.getChallengeDifficulty());
     }
 }
