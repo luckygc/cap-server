@@ -39,9 +39,16 @@
 		<junit.version>5.13.3</junit.version>
 		<assertj.version>3.27.3</assertj.version>
 		<checkstyle.version>10.26.1</checkstyle.version>
-	</properties>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+    </properties>
 
 	<dependencies>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
+
 		<dependency>
 			<groupId>org.jspecify</groupId>
 			<artifactId>jspecify</artifactId>
