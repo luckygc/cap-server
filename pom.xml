@@ -39,7 +39,6 @@
 		<junit.version>5.13.3</junit.version>
 		<assertj.version>3.27.3</assertj.version>
 		<checkstyle.version>10.26.1</checkstyle.version>
-		<spotless.version>2.44.5</spotless.version>
 	</properties>
 
 	<dependencies>
