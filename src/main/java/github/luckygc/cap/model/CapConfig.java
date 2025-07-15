@@ -18,7 +18,7 @@ public class CapConfig {
     private int challengeDifficulty = 4;
 
     /**
-     * 挑战过期时间，秒
+     * 挑战过期时间，毫秒
      */
     private long challengeExpireMs = 5 * 60 * 1000;
 
