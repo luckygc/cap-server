@@ -8,6 +8,13 @@ import github.luckygc.cap.model.RedeemChallengeResponse;
 public interface CapManager {
 
     /**
+     * 创建挑战,使用默认的挑战配置
+     *
+     * @return 挑战数据
+     */
+    ChallengeData createChallenge();
+
+    /**
      * 创建挑战
      *
      * @param challengeConfig 挑战配置
