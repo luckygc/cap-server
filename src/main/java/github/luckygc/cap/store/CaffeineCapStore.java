@@ -2,7 +2,7 @@ package github.luckygc.cap.store;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import github.luckygc.cap.CapManager;
+import github.luckygc.cap.impl.CapManagerImpl;
 import github.luckygc.cap.CapStore;
 import github.luckygc.cap.config.ChallengeConfig;
 import github.luckygc.cap.model.CapToken;
@@ -23,7 +23,7 @@ public class CaffeineCapStore implements CapStore {
                 .build();
 
         this.capTokenCache = Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofMillis(CapManager.DEFAULT_CAP_TOKEN_EXPIRE_MS * 2))
+                .expireAfterWrite(Duration.ofMillis(CapManagerImpl.DEFAULT_CAP_TOKEN_EXPIRE_MS * 2))
                 .maximumSize(10000)
                 .build();
     }
