@@ -35,9 +35,9 @@ public class CapManagerImpl implements CapManager {
 
     private CapManagerImpl(Builder builder) {
         if (builder.locale == null) {
-            this.resourceBundle = ResourceBundle.getBundle("github.luckygc.cap.Messages");
+            this.resourceBundle = ResourceBundle.getBundle("Messages");
         } else {
-            this.resourceBundle = ResourceBundle.getBundle("github.luckygc.cap.Messages", builder.locale);
+            this.resourceBundle = ResourceBundle.getBundle("Messages", builder.locale);
         }
 
         this.capStore = Objects.requireNonNull(builder.capStore, this.resourceBundle.getString("capStoreNonNull"));
