@@ -6,7 +6,6 @@ import github.luckygc.cap.model.Challenge;
 import github.luckygc.cap.model.ChallengeData;
 import github.luckygc.cap.model.RedeemChallengeRequest;
 import github.luckygc.cap.model.RedeemChallengeResponse;
-import github.luckygc.cap.store.CapStore;
 import github.luckygc.cap.utils.RandomUtil;
 import java.util.List;
 import java.util.Optional;

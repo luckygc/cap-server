@@ -1,4 +1,4 @@
-package github.luckygc.cap.store;
+package github.luckygc.cap;
 
 import github.luckygc.cap.model.CapToken;
 import github.luckygc.cap.model.ChallengeData;
@@ -19,7 +19,7 @@ public interface CapStore {
     void saveChallengeData(ChallengeData challengeData);
 
     /**
-     * 根据挑战唯一标识查找挑战数据
+     * 根据挑战唯一标识ChallengeData.token查找挑战数据
      *
      * @param token 挑战唯一标识
      * @return 挑战数据
@@ -40,5 +40,8 @@ public interface CapStore {
      */
     void saveCapToken(CapToken capToken);
 
+    /**
+     * 根据挑CapToken.token查找CapToken
+     */
     Optional<CapToken> findCapToken(String token);
 }
