@@ -10,6 +10,23 @@
 
 ### 基本使用
 
+maven, 版本与 [cap](https://github.com/tiagorangel1/cap) server模块版本一致
+```xml
+
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+<groupId>com.github.luckygc</groupId>
+<artifactId>cap-server</artifactId>
+<version>2.0.0</version>
+</dependency>
+```
+
 ```java
 // 创建 CAP 管理器，生产环境建议实现自己的CapStore
 CapManager capManager = new CapManagerImpl.Builder()
