@@ -26,31 +26,35 @@ public class ChallengeConfig {
         return challengeCount;
     }
 
-    public void setChallengeCount(int challengeCount) {
+    public ChallengeConfig setChallengeCount(int challengeCount) {
         this.challengeCount = challengeCount;
+        return this;
     }
 
     public int getChallengeSize() {
         return challengeSize;
     }
 
-    public void setChallengeSize(int challengeSize) {
+    public ChallengeConfig setChallengeSize(int challengeSize) {
         this.challengeSize = challengeSize;
+        return this;
     }
 
     public int getChallengeDifficulty() {
         return challengeDifficulty;
     }
 
-    public void setChallengeDifficulty(int challengeDifficulty) {
+    public ChallengeConfig setChallengeDifficulty(int challengeDifficulty) {
         this.challengeDifficulty = challengeDifficulty;
+        return this;
     }
 
     public long getChallengeExpireMs() {
         return challengeExpireMs;
     }
 
-    public void setChallengeExpireMs(long challengeExpireMs) {
+    public ChallengeConfig setChallengeExpireMs(long challengeExpireMs) {
         this.challengeExpireMs = challengeExpireMs;
+        return this;
     }
 }
