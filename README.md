@@ -37,12 +37,13 @@ CapManager capManager = new CapManagerImpl.Builder()
 
 // 实现默认端点
 @PostMapping("challenge")
-public ChallengeDataDTO createChallenge() {
+public ChallengeData createChallenge() {
     return capManager.createChallenge();
+    // or return capManager.createChallenge(challengeConfig);
 }
 
 @PostMapping("redeem")
-public CapTokenDTO redeemChallenge(@RequestBody RedeemChallengeRequest redeemChallengeRequest) {
+public CapToken redeemChallenge(@RequestBody RedeemChallengeRequest redeemChallengeRequest) {
     return capManager.redeemChallenge(redeemChallengeRequest);
 }
 
