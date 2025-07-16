@@ -8,7 +8,7 @@ import github.luckygc.cap.impl.MemoryCapStore;
 import github.luckygc.cap.model.ChallengeData;
 import org.junit.jupiter.api.Test;
 
-public class CapTest {
+public class CreateChallengeTest {
 
     @Test
     void testBuildCapManager() {

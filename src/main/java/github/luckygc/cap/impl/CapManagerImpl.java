@@ -137,7 +137,7 @@ public class CapManagerImpl implements CapManager {
         String actualToken = buildCapTokenString(id, hash);
 
         return capStore.findCapToken(actualToken)
-                .filter(token -> token.expires() < System.currentTimeMillis())
+                .filter(token -> token.expires() > System.currentTimeMillis())
                 .isPresent();
     }
 
