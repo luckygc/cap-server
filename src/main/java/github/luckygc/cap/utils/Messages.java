@@ -13,4 +13,12 @@ public class Messages {
     public static String get(String key, Object... args) {
         return MessageFormat.format(BUNDLE.getString(key), args);
     }
+
+    public static <T> T requireNonNull(T obj, Object... args) {
+        if (obj == null) {
+            throw new IllegalArgumentException(Messages.get("arg.notNull", args));
+        }
+
+        return obj;
+    }
 }

@@ -4,7 +4,7 @@ import github.luckygc.cap.CapManager;
 import github.luckygc.cap.CapStore;
 import github.luckygc.cap.config.CapTokenConfig;
 import github.luckygc.cap.config.ChallengeConfig;
-import github.luckygc.cap.utils.Validator;
+import github.luckygc.cap.utils.Messages;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -43,7 +43,7 @@ public class CapManagerBuilder {
     }
 
     public CapManager build() {
-        Validator.notNull(capStore, "capStore");
+        Messages.requireNonNull(capStore, "capStore");
 
         challengeConfig = Objects.requireNonNullElseGet(challengeConfig, ChallengeConfig::new);
         capTokenConfig = Objects.requireNonNullElseGet(capTokenConfig, CapTokenConfig::new);
