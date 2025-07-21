@@ -16,7 +16,7 @@ public interface CapManager {
     ChallengeData createChallenge();
 
     /**
-     * 创建挑战
+     * 根据指定配置创建挑战
      *
      * @param challengeConfig 挑战配置
      * @return 挑战数据
