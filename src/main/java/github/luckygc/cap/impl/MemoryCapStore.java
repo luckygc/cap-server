@@ -17,7 +17,7 @@ public class MemoryCapStore implements CapStore {
 
     @Override
     public void cleanExpiredTokens() {
-        if (cleaningFlag.compareAndSet(false, true)) {
+        if (!cleaningFlag.compareAndSet(false, true)) {
             return;
         }
 
