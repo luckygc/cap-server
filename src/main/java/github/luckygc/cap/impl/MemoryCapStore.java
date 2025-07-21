@@ -21,7 +21,7 @@ public class MemoryCapStore implements CapStore {
             return;
         }
 
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             try {
                 challengeDataMap.values().stream()
                         .filter(challengeData -> isExpired(challengeData.expires()))
@@ -33,7 +33,9 @@ public class MemoryCapStore implements CapStore {
             } finally {
                 cleaningFlag.set(false);
             }
-        }).start();
+        }, "MemoryCapStore-clean-task");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private void deleteCapToken(CapToken capToken) {
