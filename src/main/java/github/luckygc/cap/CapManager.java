@@ -2,6 +2,7 @@ package github.luckygc.cap;
 
 import github.luckygc.cap.config.CapTokenConfig;
 import github.luckygc.cap.config.ChallengeConfig;
+import github.luckygc.cap.impl.CapManagerBuilder;
 import github.luckygc.cap.model.ChallengeData;
 import github.luckygc.cap.model.RedeemChallengeRequest;
 import github.luckygc.cap.model.RedeemChallengeResponse;
@@ -59,4 +60,8 @@ public interface CapManager {
      * @return CAP Token 配置
      */
     CapTokenConfig getCapTokenConfig();
+
+    static CapManagerBuilder builder() {
+        return new CapManagerBuilder();
+    }
 }

@@ -41,7 +41,10 @@ public interface CapStore {
     void saveCapToken(CapToken capToken);
 
     /**
-     * 根据挑CapToken.token查找CapToken
+     * 根据CapToken.token查找CapToken
+     *
+     * @param token CapToken的唯一标识
+     * @return 查找到的CapToken，如果不存在则返回空Optional
      */
     Optional<CapToken> findCapToken(String token);
 }

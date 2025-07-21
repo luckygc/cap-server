@@ -2,9 +2,7 @@ package github.luckygc.cap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import github.luckygc.cap.config.ChallengeConfig;
 import github.luckygc.cap.impl.CapManagerBuilder;
-import github.luckygc.cap.impl.MemoryCapStore;
 import github.luckygc.cap.model.Challenge;
 import github.luckygc.cap.model.ChallengeData;
 import github.luckygc.cap.model.RedeemChallengeRequest;
@@ -26,9 +24,7 @@ public class RedeemChallengeTest {
 
     @BeforeEach
     void setUp() {
-        MemoryCapStore capStore = new MemoryCapStore();
-        capManager = CapManagerBuilder.store(capStore)
-                .build();
+        capManager = new CapManagerBuilder().build();
     }
 
     /**
@@ -91,8 +87,10 @@ public class RedeemChallengeTest {
     @Test
     void testExpiredChallenge() throws InterruptedException {
         // 1. 创建短期挑战（1毫秒过期）
-        ChallengeConfig shortExpireConfig = new ChallengeConfig().setExpireMs(1);
-        ChallengeData challengeData = capManager.createChallenge(shortExpireConfig);
+        CapManager customCapManager = new CapManagerBuilder()
+                .challenge(config -> config.expireMs(1L))
+                .build();
+        ChallengeData challengeData = customCapManager.createChallenge();
         String challengeToken = challengeData.token();
 
         // 2. 等待挑战过期
@@ -160,12 +158,14 @@ public class RedeemChallengeTest {
     @Test
     void testCustomChallengeConfig() {
         // 1. 创建自定义配置的挑战
-        ChallengeConfig customConfig = new ChallengeConfig()
-                .setCount(2)
-                .setSize(4)
-                .setDifficulty(2);
+        CapManager customCapManager = new CapManagerBuilder()
+                .challenge(config -> config
+                        .count(2)
+                        .size(4)
+                        .difficulty(2))
+                .build();
 
-        ChallengeData challengeData = capManager.createChallenge(customConfig);
+        ChallengeData challengeData = customCapManager.createChallenge();
         String challengeToken = challengeData.token();
         var challenge = challengeData.challenge();
 
@@ -174,13 +174,13 @@ public class RedeemChallengeTest {
 
         // 4. 兑换挑战
         RedeemChallengeRequest request = new RedeemChallengeRequest(challengeToken, solutions);
-        RedeemChallengeResponse response = capManager.redeemChallenge(request);
+        RedeemChallengeResponse response = customCapManager.redeemChallenge(request);
 
         // 5. 验证结果
         assertThat(response.success()).isTrue();
         assertThat(response.token()).isNotNull();
 
-        boolean isValid = capManager.validateCapToken(response.token());
+        boolean isValid = customCapManager.validateCapToken(response.token());
         assertThat(isValid).isTrue();
     }
 

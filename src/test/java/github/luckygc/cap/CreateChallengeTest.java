@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import github.luckygc.cap.config.ChallengeConfig;
 import github.luckygc.cap.impl.CapManagerBuilder;
-import github.luckygc.cap.impl.MemoryCapStore;
 import github.luckygc.cap.model.ChallengeData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,10 +14,7 @@ public class CreateChallengeTest {
     @Test
     @DisplayName("测试默认挑战配置")
     void testDefaultChallengeConfig() {
-        MemoryCapStore memoryCapStore = new MemoryCapStore();
-        CapManager capManager = CapManagerBuilder
-                .store(memoryCapStore)
-                .build();
+        CapManager capManager = new CapManagerBuilder().build();
 
         ChallengeConfig challengeConfig = capManager.getChallengeConfig();
         long startExpireTimeMillis = getExpireTimeMillis(challengeConfig.getExpireMs());
@@ -26,7 +22,6 @@ public class CreateChallengeTest {
         long endExpireTimeMillis = getExpireTimeMillis(challengeConfig.getExpireMs());
 
         assertThat(challengeData.token()).isNotBlank();
-        assertThat(memoryCapStore.findChallengeData(challengeData.token())).isNotNull();
 
         assertThat(challengeData.expires()).isBetween(startExpireTimeMillis, endExpireTimeMillis);
 
@@ -43,9 +38,8 @@ public class CreateChallengeTest {
     void testChallengeCountConfig() {
         int expectedChallengeCount = 5;
 
-        CapManager capManager = CapManagerBuilder
-                .store(new MemoryCapStore())
-                .challengeConfig(config -> config.count(expectedChallengeCount))
+        CapManager capManager = new CapManagerBuilder()
+                .challenge(c -> c.count(expectedChallengeCount))
                 .build();
 
         ChallengeData challengeData = capManager.createChallenge();
@@ -58,9 +52,8 @@ public class CreateChallengeTest {
     void testChallengeSizeConfig() {
         int expectedChallengeSize = 30;
 
-        CapManager capManager = CapManagerBuilder
-                .store(new MemoryCapStore())
-                .challengeConfig(config -> config.size(expectedChallengeSize))
+        CapManager capManager = new CapManagerBuilder()
+                .challenge(config -> config.size(expectedChallengeSize))
                 .build();
 
         ChallengeData challengeData = capManager.createChallenge();
@@ -73,9 +66,8 @@ public class CreateChallengeTest {
     void testChallengeDifficultyConfig() {
         int expectedChallengeDifficulty = 6;
 
-        CapManager capManager = CapManagerBuilder
-                .store(new MemoryCapStore())
-                .challengeConfig(config -> config.difficulty(expectedChallengeDifficulty))
+        CapManager capManager = new CapManagerBuilder()
+                .challenge(config -> config.difficulty(expectedChallengeDifficulty))
                 .build();
 
         ChallengeData challengeData = capManager.createChallenge();
@@ -88,9 +80,8 @@ public class CreateChallengeTest {
     void testChallengeExpireConfig() {
         long expectedChallengeExpireMs = 3 * 1000;
 
-        CapManager capManager = CapManagerBuilder
-                .store(new MemoryCapStore())
-                .challengeConfig(config -> config.expireMs(expectedChallengeExpireMs))
+        CapManager capManager = new CapManagerBuilder()
+                .challenge(config -> config.expireMs(expectedChallengeExpireMs))
                 .build();
 
         long startExpireTimeMillis = getExpireTimeMillis(expectedChallengeExpireMs);

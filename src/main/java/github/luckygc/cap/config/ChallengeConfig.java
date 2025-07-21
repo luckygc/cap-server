@@ -22,39 +22,101 @@ public class ChallengeConfig {
      */
     private long expireMs = 5 * 60 * 1000;
 
-    public int getCount() {
-        return count;
+    public ChallengeConfig() {
     }
 
-    public ChallengeConfig setCount(int count) {
-        this.count = count;
-        return this;
+    private ChallengeConfig(Builder builder) {
+        if (builder.count != null) {
+            count = builder.count;
+        }
+
+        if (builder.size != null) {
+            size = builder.size;
+        }
+
+        if (builder.difficulty != null) {
+            difficulty = builder.difficulty;
+        }
+
+        if (builder.expireMs != null) {
+            expireMs = builder.expireMs;
+        }
+    }
+
+    public int getCount() {
+        return count;
     }
 
     public int getSize() {
         return size;
     }
 
-    public ChallengeConfig setSize(int size) {
-        this.size = size;
-        return this;
-    }
-
     public int getDifficulty() {
         return difficulty;
-    }
-
-    public ChallengeConfig setDifficulty(int difficulty) {
-        this.difficulty = difficulty;
-        return this;
     }
 
     public long getExpireMs() {
         return expireMs;
     }
 
-    public ChallengeConfig setExpireMs(long expireMs) {
-        this.expireMs = expireMs;
-        return this;
+    public static class Builder {
+
+        private Integer count;
+        private Integer size;
+        private Integer difficulty;
+        private Long expireMs;
+
+        /**
+         * 设置挑战数量。
+         *
+         * @param count 挑战数量
+         * @return 当前配置器实例，用于方法链式调用
+         */
+        public Builder count(Integer count) {
+            this.count = count;
+            return this;
+        }
+
+        /**
+         * 设置挑战大小。
+         *
+         * @param size 挑战大小
+         * @return 当前配置器实例，用于方法链式调用
+         */
+        public Builder size(Integer size) {
+            this.size = size;
+            return this;
+        }
+
+        /**
+         * 设置挑战难度。
+         *
+         * @param difficulty 挑战难度
+         * @return 当前配置器实例，用于方法链式调用
+         */
+        public Builder difficulty(Integer difficulty) {
+            this.difficulty = difficulty;
+            return this;
+        }
+
+        /**
+         * 设置挑战过期时间（毫秒）。
+         *
+         * @param expireMs 过期时间，单位为毫秒
+         * @return 当前配置器实例，用于方法链式调用
+         */
+        public Builder expireMs(Long expireMs) {
+            this.expireMs = expireMs;
+            return this;
+        }
+
+        /**
+         * 构建并返回配置好的 ChallengeConfig 实例。
+         *
+         * @return 配置完成的 ChallengeConfig 实例
+         */
+        public ChallengeConfig build() {
+            return new ChallengeConfig(this);
+        }
     }
 }
