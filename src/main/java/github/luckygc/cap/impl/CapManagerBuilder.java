@@ -35,7 +35,7 @@ public class CapManagerBuilder {
      * @param capStore CAPTCHA 数据存储实现
      * @return 当前构建器实例，用于方法链式调用
      */
-    private CapManagerBuilder store(CapStore capStore) {
+    public CapManagerBuilder store(CapStore capStore) {
         this.capStore = capStore;
         return this;
     }
