@@ -72,13 +72,13 @@ public class CapManagerImpl implements CapManager {
 
         Optional<ChallengeData> challengeDataOptional = capStore.findChallengeData(redeemChallengeRequest.token());
         if (challengeDataOptional.isEmpty()) {
-            return RedeemChallengeResponse.error(Messages.get("challengeExpired"));
+            return RedeemChallengeResponse.error(Messages.get("challenge.expired"));
         }
 
         ChallengeData challengeData = challengeDataOptional.get();
         if (challengeData.expires() < System.currentTimeMillis()) {
             capStore.deleteChallengeData(challengeData);
-            return RedeemChallengeResponse.error(Messages.get("challengeExpired"));
+            return RedeemChallengeResponse.error(Messages.get("challenge.expired"));
         }
 
         capStore.deleteChallengeData(challengeData);
@@ -92,7 +92,7 @@ public class CapManagerImpl implements CapManager {
         });
 
         if (!isValid) {
-            return RedeemChallengeResponse.error(Messages.get("invalidSolutions"));
+            return RedeemChallengeResponse.error(Messages.get("solutions.invalid"));
         }
 
         String vertoken = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CAP_TOKEN_VER_TOKEN_BYTES_SIZE));
