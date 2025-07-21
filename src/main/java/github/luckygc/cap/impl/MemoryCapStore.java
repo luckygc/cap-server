@@ -6,21 +6,34 @@ import github.luckygc.cap.model.ChallengeData;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MemoryCapStore implements CapStore {
 
     private final Map<String, ChallengeData> challengeDataMap = new ConcurrentHashMap<>(100);
     private final Map<String, CapToken> capTokenMap = new ConcurrentHashMap<>(100);
 
+    private final AtomicBoolean cleaningFlag = new AtomicBoolean(false);
+
     @Override
     public void cleanExpiredTokens() {
-        challengeDataMap.values().stream()
-                .filter(challengeData -> isExpired(challengeData.expires()))
-                .forEach(this::deleteChallengeData);
+        if (cleaningFlag.compareAndSet(false, true)) {
+            return;
+        }
 
-        capTokenMap.values().stream()
-                .filter(challengeData -> isExpired(challengeData.expires()))
-                .forEach(this::deleteCapToken);
+        new Thread(() -> {
+            try {
+                challengeDataMap.values().stream()
+                        .filter(challengeData -> isExpired(challengeData.expires()))
+                        .forEach(this::deleteChallengeData);
+
+                capTokenMap.values().stream()
+                        .filter(challengeData -> isExpired(challengeData.expires()))
+                        .forEach(this::deleteCapToken);
+            } finally {
+                cleaningFlag.set(false);
+            }
+        }).start();
     }
 
     private void deleteCapToken(CapToken capToken) {

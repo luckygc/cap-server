@@ -59,9 +59,13 @@ public class CapManagerImpl implements CapManager {
     @Override
     public RedeemChallengeResponse redeemChallenge(RedeemChallengeRequest redeemChallengeRequest) {
         String challengeToken = redeemChallengeRequest.token();
+        if (StringUtils.isEmpty(challengeToken)) {
+            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "challengeToken"));
+        }
+
         List<Integer> solutions = redeemChallengeRequest.solutions();
-        if (StringUtils.isEmpty(challengeToken) || solutions == null || solutions.isEmpty()) {
-            return RedeemChallengeResponse.error(Messages.get("invalidParams"));
+        if (solutions == null || solutions.isEmpty()) {
+            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "solutions"));
         }
 
         capStore.cleanExpiredTokens();
