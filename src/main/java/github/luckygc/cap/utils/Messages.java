@@ -5,7 +5,7 @@ import java.util.ResourceBundle;
 
 public class Messages {
 
-    private static final ResourceBundle BUNDLE = ResourceBundle.getBundle("github.luckygc.messages.Messages");
+    private static final ResourceBundle BUNDLE = ResourceBundle.getBundle("github.luckygc.cap.messages.Messages");
 
     private Messages() {
     }
