@@ -60,12 +60,12 @@ public class CapManagerImpl implements CapManager {
     public RedeemChallengeResponse redeemChallenge(RedeemChallengeRequest redeemChallengeRequest) {
         String challengeToken = redeemChallengeRequest.token();
         if (StringUtils.isEmpty(challengeToken)) {
-            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "token"));
+            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "redeemChallengeRequest.token"));
         }
 
         List<Integer> solutions = redeemChallengeRequest.solutions();
         if (solutions == null || solutions.isEmpty()) {
-            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "solutions"));
+            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "redeemChallengeRequest.solutions"));
         }
 
         capStore.cleanExpiredTokens();
