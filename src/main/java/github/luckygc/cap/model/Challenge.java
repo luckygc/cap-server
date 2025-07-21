@@ -10,6 +10,6 @@ import github.luckygc.cap.config.ChallengeConfig;
 public record Challenge(int c, int s, int d) {
 
     public static Challenge of(ChallengeConfig config) {
-        return new Challenge(config.getChallengeCount(), config.getChallengeSize(), config.getChallengeDifficulty());
+        return new Challenge(config.getCount(), config.getSize(), config.getDifficulty());
     }
 }

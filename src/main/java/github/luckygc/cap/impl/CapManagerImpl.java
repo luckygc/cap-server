@@ -11,10 +11,7 @@ import github.luckygc.cap.model.RedeemChallengeRequest;
 import github.luckygc.cap.model.RedeemChallengeResponse;
 import github.luckygc.cap.utils.RandomUtil;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.ResourceBundle;
 import java.util.stream.IntStream;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -31,21 +28,13 @@ public class CapManagerImpl implements CapManager {
     private final CapStore capStore;
     private final ChallengeConfig defaultChallengeConfig;
     private final CapTokenConfig capTokenConfig;
-    private final ResourceBundle resourceBundle;
 
-    private CapManagerImpl(Builder builder) {
-        if (builder.locale == null) {
-            this.resourceBundle = ResourceBundle.getBundle("github.luckygc.cap.Messages");
-        } else {
-            this.resourceBundle = ResourceBundle.getBundle("github.luckygc.cap.Messages", builder.locale);
-        }
+    CapManagerImpl(CapStore capStore, ChallengeConfig challengeConfig, CapTokenConfig capTokenConfig) {
+        this.capStore = capStore;
 
-        this.capStore = Objects.requireNonNull(builder.capStore, this.resourceBundle.getString("capStoreNonNull"));
+        this.defaultChallengeConfig = challengeConfig;
 
-        this.defaultChallengeConfig = Objects.requireNonNullElseGet(builder.defaultChallengeConfig,
-                ChallengeConfig::new);
-
-        this.capTokenConfig = Objects.requireNonNullElseGet(builder.capTokenConfig, CapTokenConfig::new);
+        this.capTokenConfig = capTokenConfig;
     }
 
     @Override
@@ -58,7 +47,7 @@ public class CapManagerImpl implements CapManager {
         capStore.cleanExpiredTokens();
 
         String token = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CHALLENGE_TOKEN_BYTES_SIZE));
-        long expires = System.currentTimeMillis() + challengeConfig.getChallengeExpireMs();
+        long expires = System.currentTimeMillis() + challengeConfig.getExpireMs();
         Challenge challenge = Challenge.of(challengeConfig);
         ChallengeData challengeData = new ChallengeData(token, challenge, expires);
         capStore.saveChallengeData(challengeData);
@@ -143,38 +132,5 @@ public class CapManagerImpl implements CapManager {
 
     private String[] parseCapTokenString(String capToken) {
         return StringUtils.split(capToken, CAP_TOKEN_SEPARATOR);
-    }
-
-
-    public static class Builder {
-
-        private CapStore capStore;
-        private ChallengeConfig defaultChallengeConfig;
-        private CapTokenConfig capTokenConfig;
-        private Locale locale;
-
-        public Builder capStore(CapStore capStore) {
-            this.capStore = capStore;
-            return this;
-        }
-
-        public Builder defaultChallengeConfig(ChallengeConfig defaultChallengeConfig) {
-            this.defaultChallengeConfig = defaultChallengeConfig;
-            return this;
-        }
-
-        public Builder capTokenConfig(CapTokenConfig capTokenConfig) {
-            this.capTokenConfig = capTokenConfig;
-            return this;
-        }
-
-        public Builder locale(Locale locale) {
-            this.locale = locale;
-            return this;
-        }
-
-        public CapManager build() {
-            return new CapManagerImpl(this);
-        }
     }
 }

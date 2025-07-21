@@ -27,17 +27,17 @@ public class CreateChallengeTest {
                 .defaultChallengeConfig(challengeConfig)
                 .build();
 
-        long startExpireTimeMillis = getExpireTimeMillis(challengeConfig.getChallengeExpireMs());
+        long startExpireTimeMillis = getExpireTimeMillis(challengeConfig.getExpireMs());
         ChallengeData challengeData = capManager.createChallenge();
-        long endExpireTimeMillis = getExpireTimeMillis(challengeConfig.getChallengeExpireMs());
+        long endExpireTimeMillis = getExpireTimeMillis(challengeConfig.getExpireMs());
 
         assertThat(challengeData.expires()).isBetween(startExpireTimeMillis, endExpireTimeMillis);
 
         assertThat(challengeData.challenge()).isNotNull()
                 .satisfies(challenge -> {
-                    assertThat(challenge.c()).isEqualTo(challengeConfig.getChallengeCount());
-                    assertThat(challenge.s()).isEqualTo(challengeConfig.getChallengeSize());
-                    assertThat(challenge.d()).isEqualTo(challengeConfig.getChallengeDifficulty());
+                    assertThat(challenge.c()).isEqualTo(challengeConfig.getCount());
+                    assertThat(challenge.s()).isEqualTo(challengeConfig.getSize());
+                    assertThat(challenge.d()).isEqualTo(challengeConfig.getDifficulty());
                 });
     }
 
@@ -47,7 +47,7 @@ public class CreateChallengeTest {
 
         CapManager capManager = new Builder()
                 .capStore(new MemoryCapStore())
-                .defaultChallengeConfig(new ChallengeConfig().setChallengeCount(expectedChallengeCount))
+                .defaultChallengeConfig(new ChallengeConfig().setCount(expectedChallengeCount))
                 .build();
 
         ChallengeData challengeData = capManager.createChallenge();
@@ -61,7 +61,7 @@ public class CreateChallengeTest {
 
         CapManager capManager = new Builder()
                 .capStore(new MemoryCapStore())
-                .defaultChallengeConfig(new ChallengeConfig().setChallengeSize(expectedChallengeSize))
+                .defaultChallengeConfig(new ChallengeConfig().setSize(expectedChallengeSize))
                 .build();
 
         ChallengeData challengeData = capManager.createChallenge();
@@ -75,7 +75,7 @@ public class CreateChallengeTest {
 
         CapManager capManager = new Builder()
                 .capStore(new MemoryCapStore())
-                .defaultChallengeConfig(new ChallengeConfig().setChallengeDifficulty(expectedChallengeDifficulty))
+                .defaultChallengeConfig(new ChallengeConfig().setDifficulty(expectedChallengeDifficulty))
                 .build();
 
         ChallengeData challengeData = capManager.createChallenge();
@@ -89,7 +89,7 @@ public class CreateChallengeTest {
 
         CapManager capManager = new Builder()
                 .capStore(new MemoryCapStore())
-                .defaultChallengeConfig(new ChallengeConfig().setChallengeExpireMs(expectedChallengeExpireMs))
+                .defaultChallengeConfig(new ChallengeConfig().setExpireMs(expectedChallengeExpireMs))
                 .build();
 
         long startExpireTimeMillis = getExpireTimeMillis(expectedChallengeExpireMs);

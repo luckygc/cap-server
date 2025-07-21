@@ -5,56 +5,56 @@ public class ChallengeConfig {
     /**
      * 生成的挑战数量
      */
-    private int challengeCount = 50;
+    private int count = 50;
 
     /**
      * 每条挑战的长度
      */
-    private int challengeSize = 32;
+    private int size = 32;
 
     /**
-     * 挑战难度
+     * 挑战难度,目标前缀长度
      */
-    private int challengeDifficulty = 4;
+    private int difficulty = 4;
 
     /**
      * 挑战过期时间，毫秒
      */
-    private long challengeExpireMs = 5 * 60 * 1000;
+    private long expireMs = 5 * 60 * 1000;
 
-    public int getChallengeCount() {
-        return challengeCount;
+    public int getCount() {
+        return count;
     }
 
-    public ChallengeConfig setChallengeCount(int challengeCount) {
-        this.challengeCount = challengeCount;
+    public ChallengeConfig setCount(int count) {
+        this.count = count;
         return this;
     }
 
-    public int getChallengeSize() {
-        return challengeSize;
+    public int getSize() {
+        return size;
     }
 
-    public ChallengeConfig setChallengeSize(int challengeSize) {
-        this.challengeSize = challengeSize;
+    public ChallengeConfig setSize(int size) {
+        this.size = size;
         return this;
     }
 
-    public int getChallengeDifficulty() {
-        return challengeDifficulty;
+    public int getDifficulty() {
+        return difficulty;
     }
 
-    public ChallengeConfig setChallengeDifficulty(int challengeDifficulty) {
-        this.challengeDifficulty = challengeDifficulty;
+    public ChallengeConfig setDifficulty(int difficulty) {
+        this.difficulty = difficulty;
         return this;
     }
 
-    public long getChallengeExpireMs() {
-        return challengeExpireMs;
+    public long getExpireMs() {
+        return expireMs;
     }
 
-    public ChallengeConfig setChallengeExpireMs(long challengeExpireMs) {
-        this.challengeExpireMs = challengeExpireMs;
+    public ChallengeConfig setExpireMs(long expireMs) {
+        this.expireMs = expireMs;
         return this;
     }
 }

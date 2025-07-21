@@ -12,7 +12,6 @@ import github.luckygc.cap.model.RedeemChallengeResponse;
 import github.luckygc.cap.utils.RandomUtil;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.IntStream;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +29,6 @@ public class RedeemChallengeTest {
     void setUp() {
         capStore = new MemoryCapStore();
         capManager = new Builder()
-                .locale(Locale.CHINESE)
                 .capStore(capStore)
                 .build();
     }
@@ -95,7 +93,7 @@ public class RedeemChallengeTest {
     @Test
     void testExpiredChallenge() throws InterruptedException {
         // 1. 创建短期挑战（1毫秒过期）
-        ChallengeConfig shortExpireConfig = new ChallengeConfig().setChallengeExpireMs(1);
+        ChallengeConfig shortExpireConfig = new ChallengeConfig().setExpireMs(1);
         ChallengeData challengeData = capManager.createChallenge(shortExpireConfig);
         String challengeToken = challengeData.token();
 
@@ -165,9 +163,9 @@ public class RedeemChallengeTest {
     void testCustomChallengeConfig() {
         // 1. 创建自定义配置的挑战
         ChallengeConfig customConfig = new ChallengeConfig()
-                .setChallengeCount(2)
-                .setChallengeSize(4)
-                .setChallengeDifficulty(2);
+                .setCount(2)
+                .setSize(4)
+                .setDifficulty(2);
 
         ChallengeData challengeData = capManager.createChallenge(customConfig);
         String challengeToken = challengeData.token();
