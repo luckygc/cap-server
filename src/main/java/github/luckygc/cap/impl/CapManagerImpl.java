@@ -9,6 +9,7 @@ import github.luckygc.cap.model.Challenge;
 import github.luckygc.cap.model.ChallengeData;
 import github.luckygc.cap.model.RedeemChallengeRequest;
 import github.luckygc.cap.model.RedeemChallengeResponse;
+import github.luckygc.cap.utils.Messages;
 import github.luckygc.cap.utils.RandomUtil;
 import java.util.List;
 import java.util.Optional;
@@ -60,20 +61,20 @@ public class CapManagerImpl implements CapManager {
         String challengeToken = redeemChallengeRequest.token();
         List<Integer> solutions = redeemChallengeRequest.solutions();
         if (StringUtils.isEmpty(challengeToken) || solutions == null || solutions.isEmpty()) {
-            return RedeemChallengeResponse.error(resourceBundle.getString("invalidParams"));
+            return RedeemChallengeResponse.error(Messages.get("invalidParams"));
         }
 
         capStore.cleanExpiredTokens();
 
         Optional<ChallengeData> challengeDataOptional = capStore.findChallengeData(redeemChallengeRequest.token());
         if (challengeDataOptional.isEmpty()) {
-            return RedeemChallengeResponse.error(resourceBundle.getString("challengeExpired"));
+            return RedeemChallengeResponse.error(Messages.get("challengeExpired"));
         }
 
         ChallengeData challengeData = challengeDataOptional.get();
         if (challengeData.expires() < System.currentTimeMillis()) {
             capStore.deleteChallengeData(challengeData);
-            return RedeemChallengeResponse.error(resourceBundle.getString("challengeExpired"));
+            return RedeemChallengeResponse.error(Messages.get("challengeExpired"));
         }
 
         capStore.deleteChallengeData(challengeData);
@@ -87,7 +88,7 @@ public class CapManagerImpl implements CapManager {
         });
 
         if (!isValid) {
-            return RedeemChallengeResponse.error(resourceBundle.getString("invalidSolutions"));
+            return RedeemChallengeResponse.error(Messages.get("invalidSolutions"));
         }
 
         String vertoken = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CAP_TOKEN_VER_TOKEN_BYTES_SIZE));
@@ -132,5 +133,20 @@ public class CapManagerImpl implements CapManager {
 
     private String[] parseCapTokenString(String capToken) {
         return StringUtils.split(capToken, CAP_TOKEN_SEPARATOR);
+    }
+
+    @Override
+    public CapStore getCapStore() {
+        return capStore;
+    }
+
+    @Override
+    public ChallengeConfig getChallengeConfig() {
+        return defaultChallengeConfig;
+    }
+
+    @Override
+    public CapTokenConfig getCapTokenConfig() {
+        return capTokenConfig;
     }
 }

@@ -1,5 +1,6 @@
 package github.luckygc.cap;
 
+import github.luckygc.cap.config.CapTokenConfig;
 import github.luckygc.cap.config.ChallengeConfig;
 import github.luckygc.cap.model.ChallengeData;
 import github.luckygc.cap.model.RedeemChallengeRequest;
@@ -37,4 +38,25 @@ public interface CapManager {
      * @return 是否有效token
      */
     boolean validateCapToken(String capToken);
+
+    /**
+     * 获取存储实例
+     *
+     * @return CapStore 实例
+     */
+    CapStore getCapStore();
+
+    /**
+     * 获取默认挑战配置
+     *
+     * @return 默认挑战配置
+     */
+    ChallengeConfig getChallengeConfig();
+
+    /**
+     * 获取 CAP Token 配置
+     *
+     * @return CAP Token 配置
+     */
+    CapTokenConfig getCapTokenConfig();
 }

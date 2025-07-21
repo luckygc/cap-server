@@ -5,13 +5,14 @@ import github.luckygc.cap.CapStore;
 import github.luckygc.cap.config.CapTokenConfig;
 import github.luckygc.cap.config.ChallengeConfig;
 import github.luckygc.cap.utils.Validator;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 public class CapManagerBuilder {
 
     private CapStore capStore;
     private ChallengeConfig challengeConfig;
-    private CapTokenConfigurer capTokenConfigurer;
+    private CapTokenConfig capTokenConfig;
 
     public static CapManagerBuilder store(CapStore capStore) {
         return new CapManagerBuilder().storeConfig(capStore);
@@ -36,18 +37,16 @@ public class CapManagerBuilder {
     public CapManagerBuilder capTokenConfig(Consumer<CapTokenConfigurer> configurer) {
         CapTokenConfigurer capTokenConfigurer = new CapTokenConfigurer();
         configurer.accept(capTokenConfigurer);
-        this.capTokenConfigurer = capTokenConfigurer;
+        this.capTokenConfig = new CapTokenConfig();
+        consumeIfNotNull(capTokenConfigurer.expireMs, capTokenConfig::setExpireMs);
         return this;
     }
 
     public CapManager build() {
         Validator.notNull(capStore, "capStore");
 
-        CapTokenConfig capTokenConfig = new CapTokenConfig();
-        if (capTokenConfigurer != null) {
-            consumeIfNotNull(capTokenConfigurer.expireMs, capTokenConfig::setExpireMs);
-        }
-
+        challengeConfig = Objects.requireNonNullElseGet(challengeConfig, ChallengeConfig::new);
+        capTokenConfig = Objects.requireNonNullElseGet(capTokenConfig, CapTokenConfig::new);
         return new CapManagerImpl(capStore, challengeConfig, capTokenConfig);
     }
 

@@ -3,7 +3,7 @@ package github.luckygc.cap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import github.luckygc.cap.config.ChallengeConfig;
-import github.luckygc.cap.impl.CapManagerImpl.Builder;
+import github.luckygc.cap.impl.CapManagerBuilder;
 import github.luckygc.cap.impl.MemoryCapStore;
 import github.luckygc.cap.model.Challenge;
 import github.luckygc.cap.model.ChallengeData;
@@ -28,8 +28,7 @@ public class RedeemChallengeTest {
     @BeforeEach
     void setUp() {
         capStore = new MemoryCapStore();
-        capManager = new Builder()
-                .capStore(capStore)
+        capManager = CapManagerBuilder.store(capStore)
                 .build();
     }
 
