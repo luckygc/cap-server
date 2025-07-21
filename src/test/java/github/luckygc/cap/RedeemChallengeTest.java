@@ -23,11 +23,10 @@ import org.junit.jupiter.api.Test;
 public class RedeemChallengeTest {
 
     private CapManager capManager;
-    private MemoryCapStore capStore;
 
     @BeforeEach
     void setUp() {
-        capStore = new MemoryCapStore();
+        MemoryCapStore capStore = new MemoryCapStore();
         capManager = CapManagerBuilder.store(capStore)
                 .build();
     }
@@ -140,19 +139,19 @@ public class RedeemChallengeTest {
         RedeemChallengeRequest request1 = new RedeemChallengeRequest("", List.of(1, 2, 3));
         RedeemChallengeResponse response1 = capManager.redeemChallenge(request1);
         assertThat(response1.success()).isFalse();
-        assertThat(response1.message()).isEqualTo("无效参数");
+        assertThat(response1.message()).isEqualTo("参数[token]不能为空");
 
         // 2. 测试空解决方案
         RedeemChallengeRequest request2 = new RedeemChallengeRequest("token", new ArrayList<>());
         RedeemChallengeResponse response2 = capManager.redeemChallenge(request2);
         assertThat(response2.success()).isFalse();
-        assertThat(response1.message()).isEqualTo("无效参数");
+        assertThat(response2.message()).isEqualTo("参数[solutions]不能为空");
 
         // 3. 测试null解决方案
         RedeemChallengeRequest request3 = new RedeemChallengeRequest("token", null);
         RedeemChallengeResponse response3 = capManager.redeemChallenge(request3);
         assertThat(response3.success()).isFalse();
-        assertThat(response1.message()).isEqualTo("无效参数");
+        assertThat(response3.message()).isEqualTo("参数[solutions]不能为空");
     }
 
     /**
