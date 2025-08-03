@@ -2,6 +2,8 @@
 
 > https://github.com/tiagorangel1/cap 项目server模块的java实现
 
+适用于 widget@0.1.25
+
 ## 快速开始
 
 ### 依赖要求
