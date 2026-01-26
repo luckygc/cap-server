@@ -37,7 +37,7 @@
 		<java.version>17</java.version>
 		<jspecify.version>1.0.0</jspecify.version>
 		<junit.version>5.13.3</junit.version>
-		<assertj.version>3.27.3</assertj.version>
+		<assertj.version>3.27.7</assertj.version>
 		<checkstyle.version>10.26.1</checkstyle.version>
         <commons-lang3.version>3.18.0</commons-lang3.version>
         <commons-codec.version>1.17.2</commons-codec.version>
