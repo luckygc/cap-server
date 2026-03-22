@@ -33,12 +33,22 @@ public interface CapManager {
     RedeemChallengeResponse redeemChallenge(RedeemChallengeRequest redeemChallengeRequest);
 
     /**
-     * 验证该token是否通过挑战之后生成的,并且未过期
+     * 验证该token是否通过挑战之后生成的,并且未过期。
+     * 默认会在验证成功后立即消费该 token，以兼容新版 capjs server 的一次性 token 语义。
      *
      * @param capToken 挑战通过后返回的token
      * @return 是否有效token
      */
     boolean validateCapToken(String capToken);
+
+    /**
+     * 验证该token是否通过挑战之后生成的,并且未过期。
+     *
+     * @param capToken 挑战通过后返回的token
+     * @param keepToken 是否保留 token，true 表示验证成功后不删除
+     * @return 是否有效token
+     */
+    boolean validateCapToken(String capToken, boolean keepToken);
 
     /**
      * 获取存储实例

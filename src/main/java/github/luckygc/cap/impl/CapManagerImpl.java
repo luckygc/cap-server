@@ -84,6 +84,10 @@ public class CapManagerImpl implements CapManager {
         capStore.deleteChallengeData(challengeData);
 
         Challenge challenge = challengeData.challenge();
+        if (solutions.size() != challenge.c()) {
+            return RedeemChallengeResponse.error(Messages.get("solutions.invalid"));
+        }
+
         boolean isValid = IntStream.range(0, challenge.c()).allMatch(i -> {
             String salt = RandomUtil.prng("%s%d".formatted(challengeToken, i + 1), challenge.s());
             String target = RandomUtil.prng("%s%dd".formatted(challengeToken, i + 1), challenge.d());
@@ -119,6 +123,11 @@ public class CapManagerImpl implements CapManager {
      */
     @Override
     public boolean validateCapToken(String capToken) {
+        return validateCapToken(capToken, false);
+    }
+
+    @Override
+    public boolean validateCapToken(String capToken, boolean keepToken) {
         capStore.cleanExpiredTokens();
 
         String[] idAndVertoken = parseCapTokenString(capToken);
@@ -130,9 +139,16 @@ public class CapManagerImpl implements CapManager {
         String hash = DigestUtils.sha256Hex(idAndVertoken[1]);
         String actualToken = buildCapTokenString(id, hash);
 
-        return capStore.findCapToken(actualToken)
-                .filter(token -> token.expires() > System.currentTimeMillis())
-                .isPresent();
+        Optional<CapToken> capTokenOptional = capStore.findCapToken(actualToken)
+                .filter(token -> token.expires() > System.currentTimeMillis());
+        if (capTokenOptional.isEmpty()) {
+            return false;
+        }
+
+        if (!keepToken) {
+            capStore.deleteCapToken(capTokenOptional.get());
+        }
+        return true;
     }
 
     private String[] parseCapTokenString(String capToken) {

@@ -38,7 +38,8 @@ public class MemoryCapStore implements CapStore {
         thread.start();
     }
 
-    private void deleteCapToken(CapToken capToken) {
+    @Override
+    public void deleteCapToken(CapToken capToken) {
         capTokenMap.remove(capToken.token());
     }
 

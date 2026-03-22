@@ -47,4 +47,11 @@ public interface CapStore {
      * @return 查找到的CapToken，如果不存在则返回空Optional
      */
     Optional<CapToken> findCapToken(String token);
+
+    /**
+     * 删除通过挑战后生成的token
+     *
+     * @param capToken 通过挑战后生成的token
+     */
+    void deleteCapToken(CapToken capToken);
 }

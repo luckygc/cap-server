@@ -53,10 +53,31 @@ public class RedeemChallengeTest {
         // 5. 验证生成的token是否有效
         boolean isValid = capManager.validateCapToken(response.token());
         assertThat(isValid).isTrue();
+
+        // 6. 默认校验应消费 token，第二次校验需要失败
+        boolean secondValidateResult = capManager.validateCapToken(response.token());
+        assertThat(secondValidateResult).isFalse();
     }
 
     /**
-     * 测试无效的解决方案
+     * 测试保留 token 的校验方式
+     */
+    @Test
+    void testValidateCapTokenWithKeepToken() {
+        ChallengeData challengeData = capManager.createChallenge();
+        List<Integer> solutions = generateCorrectSolutions(challengeData.token(), challengeData.challenge());
+        RedeemChallengeResponse response = capManager.redeemChallenge(
+                new RedeemChallengeRequest(challengeData.token(), solutions));
+
+        assertThat(response.success()).isTrue();
+        assertThat(capManager.validateCapToken(response.token(), true)).isTrue();
+        assertThat(capManager.validateCapToken(response.token(), true)).isTrue();
+        assertThat(capManager.validateCapToken(response.token())).isTrue();
+        assertThat(capManager.validateCapToken(response.token())).isFalse();
+    }
+
+    /**
+     * 测试错误数量的解决方案
      */
     @Test
     void testInvalidSolutions() {
@@ -64,9 +85,9 @@ public class RedeemChallengeTest {
         ChallengeData challengeData = capManager.createChallenge();
         String challengeToken = challengeData.token();
 
-        // 2. 生成错误的解决方案（全部为0）
+        // 2. 生成错误的解决方案（数量正确，但内容错误）
         List<Integer> wrongSolutions = new ArrayList<>();
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < challengeData.challenge().c(); i++) {
             wrongSolutions.add(0);
         }
 
@@ -77,6 +98,23 @@ public class RedeemChallengeTest {
         // 4. 验证结果
         assertThat(response.success()).isFalse();
         assertThat(response.message()).isNotNull().isEqualTo("无效解决方案");
+        assertThat(response.token()).isNull();
+        assertThat(response.expires()).isNull();
+    }
+
+    /**
+     * 测试错误数量的解决方案
+     */
+    @Test
+    void testWrongSolutionsCount() {
+        ChallengeData challengeData = capManager.createChallenge();
+        List<Integer> wrongSolutions = List.of(1, 2, 3);
+
+        RedeemChallengeResponse response = capManager.redeemChallenge(
+                new RedeemChallengeRequest(challengeData.token(), wrongSolutions));
+
+        assertThat(response.success()).isFalse();
+        assertThat(response.message()).isEqualTo("无效解决方案");
         assertThat(response.token()).isNull();
         assertThat(response.expires()).isNull();
     }
