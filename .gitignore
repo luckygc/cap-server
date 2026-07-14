@@ -14,6 +14,7 @@
 .mvn/maven.config
 target
 tmp
+.worktrees/
 *.class
 *.iml
 *.jar
