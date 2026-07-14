@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import github.luckygc.cap.utils.RandomUtil;
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.RecordComponent;
@@ -49,6 +50,12 @@ class CapApiTest {
     @DisplayName("包使用非空默认契约")
     void packageIsNullMarked() {
         assertThat(Cap.class.getPackage().isAnnotationPresent(NullMarked.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("工具包使用非空默认契约")
+    void utilityPackageIsNullMarked() {
+        assertThat(RandomUtil.class.getPackage().isAnnotationPresent(NullMarked.class)).isTrue();
     }
 
     @Test

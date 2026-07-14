@@ -8,10 +8,9 @@
 
 ## 仓库结构
 
-- `src/main/java/github/luckygc/cap/`：公开接口、配置、模型和存储抽象。
-- `src/main/java/github/luckygc/cap/impl/`：默认构建器、管理器和内存存储实现。
-- `src/main/java/github/luckygc/cap/utils/`：随机数与消息辅助代码。
-- `src/main/resources/`：本地化消息资源。
+- `src/main/java/github/luckygc/cap/`：公开门面、配置、协议模型和扩展接口。
+- `src/main/java/github/luckygc/cap/internal/`：默认门面及协议、加密、重放保护等内部实现。
+- `src/main/java/github/luckygc/cap/utils/`：协议兼容随机数辅助代码。
 - `src/test/java/`：JUnit 6（JUnit Jupiter）测试。
 
 ## 常用命令
@@ -22,7 +21,7 @@
 mise exec maven -- mvn compile
 mise exec maven -- mvn verify
 mise exec maven -- mvn test
-mise exec maven -- mvn -Dtest=CreateChallengeTest test
+mise exec maven -- mvn -Dtest=ProtocolSecurityTest test
 mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
 ```
 
@@ -39,7 +38,7 @@ mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest
 ## 代码约定
 
 - 遵循 Java 17 和项目现有写法，不引入高于 Java 17 的语言或 API 要求。
-- 包名保持在 `github.luckygc.cap` 下，并按现有 `config`、`model`、`impl`、`utils` 职责放置代码。
+- 包名保持在 `github.luckygc.cap` 下；公开 API 放在根包，默认实现按职责放入 `internal` 子包，协议兼容工具放入 `utils`。
 - 使用 Spotless 和 Google Java Format 的 AOSP 风格；不要手工绕过规则。
 - 使用 4 空格缩进，类名使用 `UpperCamelCase`，方法和变量使用 `lowerCamelCase`，常量使用 `UPPER_SNAKE_CASE`。
 - 公开接口和非显然逻辑沿用现有中文 Javadoc；注释说明原因或语义，不复述代码。
@@ -48,12 +47,11 @@ mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest
 
 ## 行为与兼容性
 
-- 将 `CapManager`、`CapStore`、配置类和公开模型视为公共 API；修改签名或语义前评估向后兼容性。
+- 将 `Cap`、`CapBuilder`、选项类、扩展接口和公开模型视为公共 API；修改签名或语义前评估向后兼容性。
 - `CapBuilder.protocols(...)` 的 Format 2 语义与上游一致：空参数回退为 RSW，重复协议按输入顺序保留并执行，null 数组或元素非法。
-- challenge 必须在兑换时被消费，过期或重复兑换应失败。
-- CAP token 具有一次性语义，默认在验证成功后消费；仅 `validateCapToken(token, true)` 显式保留 token。
+- challenge 默认在兑换成功前通过原子 nonce consumer 消费，过期或重复兑换应失败。
 - 不降低随机数、哈希或 token 校验强度，不在日志或错误信息中暴露 token、解答或内部摘要。
-- 修改存储实现时保持 `CapStore` 语义，并考虑过期数据清理与并发访问。
+- 修改重放保护实现时保持 nonce 原子消费语义，并考虑过期数据清理与并发访问。
 - 避免与任务无关的重构、重命名或格式化。
 
 ## 测试约定

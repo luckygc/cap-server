@@ -79,7 +79,7 @@ class CapEventsTest {
 
     @Test
     @DisplayName("警告只接受固定消息类型并隔离异常消息")
-    void restrictsWarningMessages() {
+    void restrictsWarningTexts() {
         CapEvents events = new CapEvents(new CapEventListener() {});
 
         assertThatCode(
