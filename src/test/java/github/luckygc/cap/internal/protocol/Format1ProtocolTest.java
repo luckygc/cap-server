@@ -74,6 +74,19 @@ class Format1ProtocolTest {
     }
 
     @Test
+    @DisplayName("xorshift 多 block 拼接精确匹配上游向量")
+    void matchesUpstreamMultiBlockPrngVector() throws IOException {
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> vector =
+                (Map<String, @Nullable Object>) fixture().get("multiBlockPrng");
+
+        assertThat(RandomUtil.prngFromHash((int) ((Long) vector.get("saltSeed")).longValue(), 32))
+                .isEqualTo(vector.get("salt32"));
+        assertThat(RandomUtil.prngFromHash((int) ((Long) vector.get("targetSeed")).longValue(), 16))
+                .isEqualTo(vector.get("target16"));
+    }
+
+    @Test
     @DisplayName("生成默认字段、固定 nonce 与十分钟 TTL")
     void generatesDefaultChallenge() {
         Format1Protocol protocol =
@@ -186,7 +199,7 @@ class Format1ProtocolTest {
     }
 
     @Test
-    @DisplayName("拒绝 solution 数量、类型与安全整数范围错误")
+    @DisplayName("拒绝 solution 数量与非整数类型错误")
     void rejectsInvalidSolutionShape() {
         Format1Protocol protocol = protocol(2, 8, 2);
         String token = validToken(2, 8, 2);
@@ -196,10 +209,56 @@ class Format1ProtocolTest {
         assertFailure(
                 protocol.validateComponents(true, token, List.of(1, 1.0), null),
                 "invalid_solutions");
-        assertFailure(
-                protocol.validateComponents(
-                        true, token, List.of(1, BigInteger.valueOf(9_007_199_254_740_992L)), null),
-                "invalid_solutions");
+    }
+
+    @Test
+    @DisplayName("接受上游验证成功的超出安全整数范围解答")
+    void acceptsUpstreamLargeIntegerSolutions() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture();
+        @SuppressWarnings("unchecked")
+        List<@Nullable Object> fixtureSolutions =
+                (List<@Nullable Object>) fixture.get("largeSolutions");
+        List<@Nullable Object> solutions =
+                fixtureSolutions.stream()
+                        .map(value -> (Object) BigInteger.valueOf(((Number) value).longValue()))
+                        .toList();
+        RedeemRequest request =
+                new RedeemRequest((String) fixture.get("token"), solutions, null, false, false);
+
+        Format1Protocol.ValidationResult result = protocol(2, 8, 2).validate(request, null);
+
+        assertThat(result)
+                .isEqualTo(
+                        new Format1Protocol.Validated(
+                                null,
+                                1_735_689_600_000L,
+                                4_102_444_800_000L,
+                                (String) fixture.get("signatureHex")));
+    }
+
+    @Test
+    @DisplayName("exp 等于当前毫秒时仍然有效")
+    void acceptsExpirationEqualToCurrentTime() throws IOException {
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> boundary =
+                (Map<String, @Nullable Object>) fixture().get("expirationBoundary");
+        RedeemRequest request =
+                new RedeemRequest(
+                        (String) boundary.get("token"),
+                        List.of(boundary.get("solution")),
+                        null,
+                        false,
+                        false);
+
+        Format1Protocol.ValidationResult result = protocol(1, 4, 1).validate(request, null);
+
+        assertThat(result)
+                .isEqualTo(
+                        new Format1Protocol.Validated(
+                                null,
+                                (Long) boundary.get("iat"),
+                                (Long) boundary.get("exp"),
+                                (String) boundary.get("signatureHex")));
     }
 
     @Test

@@ -3,7 +3,7 @@
     "package": "capjs-core",
     "version": "0.1.1",
     "generator": "core/src/crypto.js jwtSign+sha256Hex and core/src/prng.js",
-    "payloadNote": "fixed payload; solutions brute-forced with upstream primitives"
+    "payloadNote": "fixed payload; solutions brute-forced with upstream primitives; large solutions and boundary token verified with capjs-core 0.1.1 under Node 24"
   },
   "secret": "0123456789abcdef0123456789abcdef",
   "payload": {
@@ -36,5 +36,27 @@
       "hash": "cdc5ea6f0844d198bac1198807c94204b394fefb41a9a5390e2468a5fb721843"
     }
   ],
-  "solutions": [301, 445]
+  "solutions": [301, 445],
+  "largeSolutions": [9007199254741132, 9007199254741442],
+  "largeSolutionHashes": [
+    "1429a6a2ffd1e7538574e4f1a627c052bd9d8b60024fff691a16f922ef8a912d",
+    "cd559728d7b393b6f6ad8db2d0c9f434248fe9b0333915ae17f2a3ce32a70f97"
+  ],
+  "multiBlockPrng": {
+    "seedDescription": "fixture token + index 1",
+    "saltSeed": 1566667176,
+    "targetSeed": 3429245988,
+    "salt32": "19dd4842aa7f55285b94dde5c52ba3d1",
+    "target16": "14b6aaf5fce52a21"
+  },
+  "expirationBoundary": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoibiIsImMiOjEsInMiOjQsImQiOjEsImV4cCI6MTczNTY4OTYwMDAwMCwiaWF0IjoxNzM1Njg5NjAwMDAwfQ.LqEEl713rAC2EYwAWSS3QyHneYF-Cegs4RkCsCfhgVU",
+    "signatureHex": "2ea10497bd77ac00b6118c005924b74321e779817e09e82ce11902b027e18155",
+    "exp": 1735689600000,
+    "iat": 1735689600000,
+    "salt": "7dfb",
+    "target": "f",
+    "solution": 20,
+    "hash": "f93c9815523ff3bebecd25f99dbf69ab652f278a97ea5dca84a577f5547b53eb"
+  }
 }

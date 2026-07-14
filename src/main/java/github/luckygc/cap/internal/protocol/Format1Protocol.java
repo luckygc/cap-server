@@ -28,7 +28,6 @@ public final class Format1Protocol {
     private static final int MAX_COUNT = 1000;
     private static final int MAX_SIZE = 256;
     private static final int MAX_DIFFICULTY = 16;
-    private static final long MAX_SAFE_INTEGER = 9_007_199_254_740_991L;
     private static final HexFormat HEX = HexFormat.of();
 
     private final JwtCodec jwt;
@@ -146,11 +145,11 @@ public final class Format1Protocol {
         }
         String[] solutionStrings = new String[expectedCount];
         for (int index = 0; index < expectedCount; index++) {
-            @Nullable Long solution = safeInteger(solutions.get(index));
+            @Nullable String solution = integerText(solutions.get(index));
             if (solution == null) {
                 return failure("invalid_solutions");
             }
-            solutionStrings[index] = Long.toString(solution);
+            solutionStrings[index] = solution;
         }
 
         int tokenState = RandomUtil.fnv1a(token);
@@ -189,12 +188,23 @@ public final class Format1Protocol {
         return null;
     }
 
-    private static @Nullable Long safeInteger(@Nullable Object value) {
-        @Nullable Long integer = protocolInteger(value);
-        if (integer == null || integer < -MAX_SAFE_INTEGER || integer > MAX_SAFE_INTEGER) {
-            return null;
+    private static @Nullable String integerText(@Nullable Object value) {
+        if (value instanceof Byte number) {
+            return number.toString();
         }
-        return integer;
+        if (value instanceof Short number) {
+            return number.toString();
+        }
+        if (value instanceof Integer number) {
+            return number.toString();
+        }
+        if (value instanceof Long number) {
+            return number.toString();
+        }
+        if (value instanceof BigInteger number) {
+            return number.toString();
+        }
+        return null;
     }
 
     private static void validateParameters(int count, int size, int difficulty) {
