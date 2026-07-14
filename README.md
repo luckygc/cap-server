@@ -30,23 +30,100 @@
 并使用本机 Caffeine 缓存阻止 challenge 重复兑换：
 
 ```java
-Cap cap = Cap.builder(System.getenv("CAP_SECRET")).build();
+import github.luckygc.cap.Cap;
+import github.luckygc.cap.ChallengeResponse;
+import github.luckygc.cap.RedeemRequest;
+import github.luckygc.cap.RedeemResult;
+import java.util.List;
+import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@PostMapping("challenge")
-public ChallengeResponse challenge() {
-    return cap.createChallenge();
-}
+@RestController
+@RequestMapping("/cap/")
+public final class CapController {
 
-@PostMapping("redeem")
-public RedeemResult redeem(@RequestBody RedeemRequest request) {
-    return cap.redeem(request);
+    private final Cap cap = Cap.builder(System.getenv("CAP_SECRET")).build();
+
+    @PostMapping("challenge")
+    public ChallengeResponse challenge() {
+        return cap.createChallenge();
+    }
+
+    @PostMapping("redeem")
+    public RedeemWireResponse redeem(@RequestBody RedeemWireRequest request) {
+        RedeemResult result = cap.redeem(request.toCapRequest());
+        if (result instanceof RedeemResult.Success success && success.tokenKey() != null) {
+            // 在返回前持久化 success.tokenKey()、scope()、expires() 和业务上下文。
+        }
+        return RedeemWireResponse.from(result);
+    }
+
+    public record RedeemWireRequest(
+            String token,
+            List<Object> solutions,
+            InstrumentationWireResult instr,
+            boolean instr_blocked,
+            boolean instr_timeout) {
+
+        RedeemRequest toCapRequest() {
+            RedeemRequest.InstrumentationResult instrumentation = instr == null
+                    ? null
+                    : new RedeemRequest.InstrumentationResult(instr.i(), instr.state(), instr.ts());
+            return new RedeemRequest(
+                    token, solutions, instrumentation, instr_blocked, instr_timeout);
+        }
+    }
+
+    public record InstrumentationWireResult(String i, Map<String, Object> state, Long ts) {}
+
+    public sealed interface RedeemWireResponse {
+
+        static RedeemWireResponse from(RedeemResult result) {
+            if (result instanceof RedeemResult.Success success) {
+                return new Success(
+                        success.success(),
+                        success.token(),
+                        success.tokenKey(),
+                        success.expires(),
+                        success.scope(),
+                        success.iat());
+            }
+            RedeemResult.Failure failure = (RedeemResult.Failure) result;
+            return new Failure(
+                    failure.success(),
+                    failure.reason(),
+                    failure.instrError(),
+                    failure.error());
+        }
+
+        record Success(
+                boolean success,
+                String token,
+                String tokenKey,
+                long expires,
+                String scope,
+                long iat) implements RedeemWireResponse {}
+
+        record Failure(
+                boolean success,
+                String reason,
+                boolean instr_error,
+                String error) implements RedeemWireResponse {}
+    }
 }
 ```
 
-上述类型都位于 `github.luckygc.cap`。`Cap` 是线程安全的，建议在 Spring 中注册为单例 Bean，
-不要在每个请求中重新构建。此库不依赖 Spring，也不提供控制器、JSON databind 或认证中间件；
-这些由宿主应用负责。示例展示最小协议接线；生产控制器应在返回响应前处理成功结果并持久化
-`tokenKey` 与授权上下文。
+`ChallengeResponse` 的字段与上游 challenge wire 同名，可以直接返回。redeem wire 则必须经过
+adapter：上游 widget 发送 `instr_blocked` / `instr_timeout`，失败响应读取 `instr_error`；核心 Java
+API 为保持 Java 命名习惯，访问器分别是 `instrBlocked()`、`instrTimeout()`、`instrError()`。
+不要把 `RedeemRequest` / `RedeemResult` 直接作为兼容上游的 Web DTO。示例中的 nullable record
+component 未加注解；宿主应用可按自己的空值检查方案补充标注。
+
+`Cap` 是线程安全的，建议注册为 Spring 单例，不要在每个请求中重新构建。此库不依赖 Spring，
+也不提供控制器、Jackson Databind 或认证中间件；示例所需的 Web/JSON 依赖由宿主应用提供。
 
 需要绑定业务场景时，在生成和兑换两端使用同一 scope：
 
@@ -158,7 +235,7 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
 `validateCapToken(...)` 已删除，也没有兼容层：
 
 - 用 `Cap.builder(secret).build()` 替代 `CapManager.builder()`；
-- 用 `createChallenge(...)` / `redeem(...)` 的 records 直接作为 Web DTO；
+- challenge 可直接返回 `ChallengeResponse`；redeem 使用显式 wire DTO/adapter 处理 snake_case；
 - 用 `NonceConsumer` 或默认 Caffeine cache 替代 challenge 存储；
 - 兑换成功后保存 `tokenKey`，不要再调用 `validateCapToken(...)`；
 - 集群中为所有实例配置同一 `secret`、RSW key pair 和共享 `NonceConsumer`。
