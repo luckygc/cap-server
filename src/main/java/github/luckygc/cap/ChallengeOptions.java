@@ -76,7 +76,7 @@ public final class ChallengeOptions {
         } finally {
             visiting.remove(source);
         }
-        return Map.copyOf(copy);
+        return Collections.unmodifiableMap(copy);
     }
 
     static List<Object> immutableList(List<?> source) {
@@ -94,11 +94,13 @@ public final class ChallengeOptions {
         } finally {
             visiting.remove(source);
         }
-        return List.copyOf(copy);
+        return Collections.unmodifiableList(copy);
     }
 
-    private static Object immutableValue(@Nullable Object value, Set<Object> visiting) {
-        Objects.requireNonNull(value, "map/list value");
+    private static @Nullable Object immutableValue(@Nullable Object value, Set<Object> visiting) {
+        if (value == null) {
+            return null;
+        }
         if (value instanceof Map<?, ?> map) {
             return immutableMap(map, visiting);
         }
@@ -107,17 +109,25 @@ public final class ChallengeOptions {
         }
         if (value instanceof String
                 || value instanceof Boolean
-                || value instanceof Character
                 || value instanceof Byte
                 || value instanceof Short
                 || value instanceof Integer
                 || value instanceof Long
-                || value instanceof Float
-                || value instanceof Double
                 || value instanceof BigInteger
-                || value instanceof BigDecimal
-                || value instanceof Enum<?>) {
+                || value instanceof BigDecimal) {
             return value;
+        }
+        if (value instanceof Float floatValue) {
+            if (Float.isFinite(floatValue)) {
+                return value;
+            }
+            throw new IllegalArgumentException("JSON floating-point values must be finite");
+        }
+        if (value instanceof Double doubleValue) {
+            if (Double.isFinite(doubleValue)) {
+                return value;
+            }
+            throw new IllegalArgumentException("JSON floating-point values must be finite");
         }
         throw new IllegalArgumentException("map/list values must be immutable JSON values");
     }

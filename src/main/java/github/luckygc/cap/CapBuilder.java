@@ -91,7 +91,7 @@ public final class CapBuilder {
     public CapBuilder nonceConsumer(NonceConsumer consumer) {
         Objects.requireNonNull(consumer, "consumer");
         if (replayProtectionDisabled) {
-            throw new IllegalStateException(
+            throw new IllegalArgumentException(
                     "nonceConsumer and disableReplayProtection are mutually exclusive");
         }
         this.nonceConsumer = consumer;
@@ -100,7 +100,7 @@ public final class CapBuilder {
 
     public CapBuilder disableReplayProtection() {
         if (nonceConsumer != null) {
-            throw new IllegalStateException(
+            throw new IllegalArgumentException(
                     "nonceConsumer and disableReplayProtection are mutually exclusive");
         }
         replayProtectionDisabled = true;

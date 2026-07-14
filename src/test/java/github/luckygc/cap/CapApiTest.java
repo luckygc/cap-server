@@ -2,7 +2,6 @@ package github.luckygc.cap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -92,18 +91,22 @@ class CapApiTest {
     }
 
     @Test
-    @DisplayName("映射递归拒绝空值")
-    void mapsRecursivelyRejectNulls() {
+    @DisplayName("映射递归保留 JSON null")
+    void mapsRecursivelyPreserveJsonNulls() {
         Map<String, Object> nested = new LinkedHashMap<>();
         nested.put("invalid", null);
 
-        assertThatNullPointerException()
-                .isThrownBy(() -> ChallengeOptions.builder().extra(Map.of("nested", nested)));
-        assertThatNullPointerException()
-                .isThrownBy(
-                        () ->
-                                new RedeemRequest.InstrumentationResult(
-                                        "i", Map.of("nested", nested), null));
+        ChallengeOptions options =
+                ChallengeOptions.builder().extra(Map.of("nested", nested)).build();
+        RedeemRequest.InstrumentationResult result =
+                new RedeemRequest.InstrumentationResult("i", Map.of("nested", nested), null);
+
+        Map<?, ?> optionsNested = (Map<?, ?>) options.extra().get("nested");
+        Map<?, ?> resultNested = (Map<?, ?>) result.state().get("nested");
+        assertThat(optionsNested.containsKey("invalid")).isTrue();
+        assertThat(optionsNested.get("invalid")).isNull();
+        assertThat(resultNested.containsKey("invalid")).isTrue();
+        assertThat(resultNested.get("invalid")).isNull();
     }
 
     @Test
@@ -114,6 +117,22 @@ class CapApiTest {
                         () ->
                                 ChallengeOptions.builder()
                                         .extra(Map.of("mutable", new StringBuilder("value"))));
+    }
+
+    @Test
+    @DisplayName("映射拒绝非 JSON 与非有限数值叶子")
+    void mapsRejectInvalidJsonLeafValues() {
+        assertInvalidJsonLeaf('x');
+        assertInvalidJsonLeaf(CapProtocol.SHA256_POW);
+        assertInvalidJsonLeaf(Double.NaN);
+        assertInvalidJsonLeaf(Double.POSITIVE_INFINITY);
+        assertInvalidJsonLeaf(Float.NEGATIVE_INFINITY);
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () ->
+                                new ChallengeResponse.ProtocolChallenge(
+                                        "sha256", Map.of("invalid", 'x')));
     }
 
     @Test
@@ -227,13 +246,13 @@ class CapApiTest {
     void replayProtectionConfigurationIsMutuallyExclusive() {
         NonceConsumer consumer = (signature, ttl) -> true;
 
-        assertThatIllegalStateException()
+        assertThatIllegalArgumentException()
                 .isThrownBy(
                         () ->
                                 Cap.builder("0123456789abcdef")
                                         .nonceConsumer(consumer)
                                         .disableReplayProtection());
-        assertThatIllegalStateException()
+        assertThatIllegalArgumentException()
                 .isThrownBy(
                         () ->
                                 Cap.builder("0123456789abcdef")
@@ -293,5 +312,11 @@ class CapApiTest {
         assertThatThrownBy(operation::run)
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("protocol not implemented");
+    }
+
+    private static void assertInvalidJsonLeaf(Object value) {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> ChallengeOptions.builder().extra(Map.of("invalid", value)))
+                .as("invalid JSON leaf: %s", value);
     }
 }
