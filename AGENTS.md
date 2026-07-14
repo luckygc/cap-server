@@ -12,7 +12,7 @@
 - `src/main/java/github/luckygc/cap/impl/`：默认构建器、管理器和内存存储实现。
 - `src/main/java/github/luckygc/cap/utils/`：随机数与消息辅助代码。
 - `src/main/resources/`：本地化消息资源。
-- `src/test/java/`：JUnit 5 测试。
+- `src/test/java/`：JUnit 6（JUnit Jupiter）测试。
 
 ## 常用命令
 
@@ -53,7 +53,7 @@ mise exec maven -- mvn -Dtest=CreateChallengeTest test
 
 ## 测试约定
 
-- 使用 JUnit 5 和 AssertJ，测试放在与生产包对应的 `src/test/java` 路径下。
+- 使用 JUnit 6（JUnit Jupiter）和 AssertJ，测试放在与生产包对应的 `src/test/java` 路径下。
 - 测试类和方法命名沿用现有风格；`@DisplayName` 使用简洁中文描述行为。
 - 修复缺陷时添加能够先复现问题的回归测试；新增行为覆盖成功、失败和边界路径。
 - 涉及时间、随机性或过期逻辑时避免脆弱的精确时刻断言，使用范围或可观察行为断言。
