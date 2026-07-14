@@ -14,8 +14,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.DisplayName;
@@ -144,33 +147,44 @@ class ProtocolSecurityTest {
     void concurrentReplayHasExactlyOneWinner() throws Exception {
         Cap cap = format1Cap();
         RedeemRequest request = solve((ChallengeResponse.Format1) cap.createChallenge());
+        int concurrency = 16;
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
         List<Callable<RedeemResult>> calls = new ArrayList<>();
-        for (int index = 0; index < 16; index++) {
-            calls.add(() -> cap.redeem(request));
+        for (int index = 0; index < concurrency; index++) {
+            calls.add(
+                    () -> {
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException(
+                                    "timed out waiting for concurrent start");
+                        }
+                        return cap.redeem(request);
+                    });
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(8);
+        ExecutorService executor = Executors.newFixedThreadPool(concurrency);
         try {
-            List<RedeemResult> results =
-                    executor.invokeAll(calls).stream()
-                            .map(
-                                    future -> {
-                                        try {
-                                            return future.get();
-                                        } catch (Exception exception) {
-                                            throw new IllegalStateException(exception);
-                                        }
-                                    })
-                            .toList();
+            List<Future<RedeemResult>> futures = calls.stream().map(executor::submit).toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS))
+                    .as("all replay attempts reached the start barrier")
+                    .isTrue();
+            start.countDown();
+            List<RedeemResult> results = new ArrayList<>(concurrency);
+            for (Future<RedeemResult> future : futures) {
+                results.add(future.get(5, TimeUnit.SECONDS));
+            }
 
             assertThat(results).filteredOn(RedeemResult.Success.class::isInstance).hasSize(1);
             assertThat(results)
                     .filteredOn(RedeemResult.Failure.class::isInstance)
                     .extracting(result -> ((RedeemResult.Failure) result).reason())
                     .containsOnly("already_redeemed")
-                    .hasSize(15);
+                    .hasSize(concurrency - 1);
         } finally {
+            start.countDown();
             executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
         }
     }
 
