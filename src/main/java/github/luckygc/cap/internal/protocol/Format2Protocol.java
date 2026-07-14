@@ -173,9 +173,6 @@ public final class Format2Protocol {
                 || !(metadata.get("expected") instanceof List<?> expected)) {
             return failure("invalid_token");
         }
-        if (expected.isEmpty()) {
-            return failure("invalid_token");
-        }
         List<@Nullable Object> solutions = request.solutions();
         if (solutions.size() != expected.size()) {
             return failure("invalid_solutions");
@@ -349,7 +346,11 @@ public final class Format2Protocol {
         if (output.size() > MAX_PROTOCOL_MAP_ENTRIES) {
             return instrumentationFailure("invalid_state");
         }
-        @Nullable Map<String, @Nullable Object> state = stringMap(output.get("state"));
+        @Nullable Object stateValue = output.get("state");
+        if (stateValue instanceof List<?> && metadata.id().equals(output.get("i"))) {
+            return instrumentationFailure("failed_challenge");
+        }
+        @Nullable Map<String, @Nullable Object> state = stringMap(stateValue);
         InstrumentationVerifier.VerificationResult result =
                 instrumentationVerifier.verify(metadata, output.get("i"), state);
         return result.valid()

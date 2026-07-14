@@ -151,6 +151,17 @@ class Format2ProtocolTest {
     }
 
     @Test
+    @DisplayName("合法空 expected 与空 solutions 按上游返回完整成功上下文")
+    void acceptsEmptyExpectedAndSolutions() {
+        String token = sign(Map.of("expected", List.of()), future(), now(), "login");
+
+        assertThat(protocol().validate(request(token, List.of()), "login"))
+                .isEqualTo(
+                        new Format2Protocol.Validated(
+                                "login", now(), future(), Format1Protocol.signatureHex(token)));
+    }
+
+    @Test
     @DisplayName("未启用 SHA 时不校验其闲置参数")
     void ignoresUnusedPowParameters() {
         Format2Protocol protocol =
@@ -551,6 +562,52 @@ class Format2ProtocolTest {
                                         request(nonBlockingToken, List.of(Map.of("blocked", true))),
                                         null))
                 .isInstanceOf(Format2Protocol.Validated.class);
+    }
+
+    @Test
+    @DisplayName("instrumentation 数组 state 按对象属性比较失败，缺失或 null 仍为非法状态")
+    void mapsInstrumentationArrayAndMissingStatesLikeUpstream() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture();
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> metadata =
+                (Map<String, @Nullable Object>) fixture.get("expectedMetadata");
+        @SuppressWarnings("unchecked")
+        List<Map<String, @Nullable Object>> expected =
+                (List<Map<String, @Nullable Object>>) metadata.get("expected");
+        Map<String, @Nullable Object> instrEntry = expected.get(2);
+        String token = sign(Map.of("expected", List.of(instrEntry)), future(), now(), null);
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> fixtureSolution =
+                (Map<String, @Nullable Object>) request(fixture).solutions().get(2);
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> output =
+                (Map<String, @Nullable Object>) fixtureSolution.get("instr");
+        Object id = output.get("i");
+
+        assertFailure(
+                protocol()
+                        .validate(
+                                request(
+                                        token,
+                                        List.of(
+                                                Map.of(
+                                                        "instr",
+                                                        Map.of("i", id, "state", List.of())))),
+                                null),
+                "failed_challenge",
+                true);
+        assertFailure(
+                protocol()
+                        .validate(request(token, List.of(Map.of("instr", Map.of("i", id)))), null),
+                "invalid_state",
+                true);
+        Map<String, @Nullable Object> nullState = new LinkedHashMap<>();
+        nullState.put("i", id);
+        nullState.put("state", null);
+        assertFailure(
+                protocol().validate(request(token, List.of(Map.of("instr", nullState))), null),
+                "invalid_state",
+                true);
     }
 
     @Test

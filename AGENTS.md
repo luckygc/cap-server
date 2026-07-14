@@ -49,6 +49,7 @@ mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest
 ## 行为与兼容性
 
 - 将 `CapManager`、`CapStore`、配置类和公开模型视为公共 API；修改签名或语义前评估向后兼容性。
+- `CapBuilder.protocols(...)` 的 Format 2 语义与上游一致：空参数回退为 RSW，重复协议按输入顺序保留并执行，null 数组或元素非法。
 - challenge 必须在兑换时被消费，过期或重复兑换应失败。
 - CAP token 具有一次性语义，默认在验证成功后消费；仅 `validateCapToken(token, true)` 显式保留 token。
 - 不降低随机数、哈希或 token 校验强度，不在日志或错误信息中暴露 token、解答或内部摘要。
