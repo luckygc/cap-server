@@ -1,6 +1,7 @@
 package github.luckygc.cap;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import github.luckygc.cap.internal.crypto.EncryptedMetadataCodec;
 import github.luckygc.cap.internal.crypto.JwtCodec;
@@ -123,8 +124,8 @@ class CapIntegrationTest {
     }
 
     @Test
-    @DisplayName("Format 1 instrumentation 生成并按顶层信号顺序验证")
-    void format1InstrumentationUsesTopLevelSignals() {
+    @DisplayName("server facade wiring 连接 Format 1 instrumentation 与顶层信号")
+    void wiresFormat1InstrumentationThroughServerFacade() {
         Cap cap =
                 Cap.builder(SECRET)
                         .format1(1, 4, 1)
@@ -240,6 +241,26 @@ class CapIntegrationTest {
         RedeemResult errored = throwing.redeem(solve(erroredChallenge));
         assertFailure(errored, "nonce_store_error");
         assertThat(((RedeemResult.Failure) errored).error()).isNull();
+    }
+
+    @Test
+    @DisplayName("外部 nonce consumer 完全替代本机 replay cache")
+    void externalNonceConsumerCompletelyReplacesLocalCache() {
+        AtomicInteger calls = new AtomicInteger();
+        Cap cap =
+                Cap.builder(SECRET)
+                        .format1(1, 4, 1)
+                        .nonceConsumer(
+                                (signature, ttl) -> {
+                                    calls.incrementAndGet();
+                                    return true;
+                                })
+                        .build();
+        RedeemRequest request = solve((ChallengeResponse.Format1) cap.createChallenge());
+
+        assertThat(cap.redeem(request)).isInstanceOf(RedeemResult.Success.class);
+        assertThat(cap.redeem(request)).isInstanceOf(RedeemResult.Success.class);
+        assertThat(calls).hasValue(2);
     }
 
     @Test
@@ -401,6 +422,24 @@ class CapIntegrationTest {
     }
 
     @Test
+    @DisplayName("STRICT 重复协议按调用方顺序完整保留")
+    void strictDuplicateProtocolsPreserveOrder() {
+        Cap cap =
+                Cap.builder(SECRET)
+                        .profile(CapProfile.STRICT)
+                        .protocols(CapProtocol.RSW, CapProtocol.RSW)
+                        .rswKeyPair(RswKeyPair.generate(1024))
+                        .rswIterations(1)
+                        .build();
+
+        ChallengeResponse.Format2 challenge = (ChallengeResponse.Format2) cap.createChallenge();
+
+        assertThat(challenge.challenges())
+                .extracting(ChallengeResponse.ProtocolChallenge::protocol)
+                .containsExactly("rsw", "rsw");
+    }
+
+    @Test
     @DisplayName("signer 异常安全映射为固定失败码")
     void mapsTokenSignerFailureWithoutMessage() {
         Cap cap =
@@ -418,6 +457,51 @@ class CapIntegrationTest {
 
         assertFailure(result, "token_signer_error");
         assertThat(((RedeemResult.Failure) result).error()).isNull();
+    }
+
+    @Test
+    @DisplayName("signer 失败不回滚已消费的 challenge")
+    void signerFailureDoesNotRollBackClaim() {
+        AtomicInteger nonceCalls = new AtomicInteger();
+        AtomicInteger signerCalls = new AtomicInteger();
+        Cap cap =
+                Cap.builder(SECRET)
+                        .format1(1, 4, 1)
+                        .nonceConsumer((signature, ttl) -> nonceCalls.incrementAndGet() == 1)
+                        .tokenSigner(
+                                (scope, expires, issuedAt) -> {
+                                    signerCalls.incrementAndGet();
+                                    throw new Exception("sensitive-signer-message");
+                                })
+                        .build();
+        RedeemRequest request = solve((ChallengeResponse.Format1) cap.createChallenge());
+
+        assertFailure(cap.redeem(request), "token_signer_error");
+        assertFailure(cap.redeem(request), "already_redeemed");
+        assertThat(nonceCalls).hasValue(2);
+        assertThat(signerCalls).hasValue(1);
+    }
+
+    @Test
+    @DisplayName("instrumentation transformer 异常以固定生成异常抛出")
+    void customInstrumentationTransformerFailureUsesSafeFacadeException() {
+        Cap cap =
+                Cap.builder(SECRET)
+                        .format1(1, 4, 1)
+                        .instrumentation(
+                                InstrumentationOptions.builder()
+                                        .transformer(
+                                                (script, level) -> {
+                                                    throw new IllegalStateException(
+                                                            "sensitive-transformer-message");
+                                                })
+                                        .build())
+                        .build();
+
+        assertThatThrownBy(cap::createChallenge)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("instrumentation transformer failed")
+                .hasMessageNotContaining("sensitive-transformer-message");
     }
 
     @Test
@@ -486,6 +570,8 @@ class CapIntegrationTest {
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> format2InstrumentationMetadata(String token) {
+        // Server-facade wiring only: decrypt authenticated server metadata to build a public
+        // RedeemRequest. Task 7 owns client blob generation/oracle coverage.
         Map<String, Object> payload =
                 (Map<String, Object>) (Map<?, ?>) new JwtCodec(SECRET).verify(token).orElseThrow();
         Map<String, Object> metadata =
@@ -501,6 +587,8 @@ class CapIntegrationTest {
 
     @SuppressWarnings("unchecked")
     private static RedeemRequest.InstrumentationResult format1InstrumentationResult(String token) {
+        // Server-facade wiring test only: Task 7 owns the upstream client-script oracle. Here the
+        // server decrypts its authenticated ei metadata solely to isolate ei -> facade dispatch.
         Map<String, Object> payload =
                 (Map<String, Object>) (Map<?, ?>) new JwtCodec(SECRET).verify(token).orElseThrow();
         Map<String, Object> metadata =

@@ -81,8 +81,8 @@ public final class CapBuilder {
     /**
      * 配置 instrumentation；其中的自定义 transformer 必须是可信同步代码。
      *
-     * <p>自定义 transformer 可见完整脚本及 nonce 相关内容，并在 challenge 调用线程执行；本库不提供超时、 内存隔离或 JVM
-     * sandbox，仅校验异常、返回值和输出大小。
+     * <p>自定义 transformer 可见完整脚本及 nonce 相关内容，并在 challenge 调用线程执行；同一 {@link Cap}
+     * 可被并发调用，实现必须线程安全。其阻塞和外部副作用由调用方负责；本库不提供超时、内存隔离或 JVM sandbox，仅校验异常、返回值和输出大小。
      */
     public CapBuilder instrumentation(InstrumentationOptions options) {
         this.instrumentation = Objects.requireNonNull(options, "options");
@@ -95,6 +95,11 @@ public final class CapBuilder {
         return this;
     }
 
+    /**
+     * 使用外部原子 nonce consumer 完全替代本机缓存。
+     *
+     * <p>consumer 在 redeem 调用线程同步执行，必须是可信且线程安全的；其阻塞和外部副作用由调用方负责。
+     */
     public CapBuilder nonceConsumer(NonceConsumer consumer) {
         Objects.requireNonNull(consumer, "consumer");
         if (replayProtectionDisabled) {
@@ -114,11 +119,21 @@ public final class CapBuilder {
         return this;
     }
 
+    /**
+     * 使用自定义业务 token signer。
+     *
+     * <p>signer 在 redeem 调用线程同步执行，必须是可信且线程安全的；其阻塞和外部副作用由调用方负责。
+     */
     public CapBuilder tokenSigner(TokenSigner signer) {
         this.tokenSigner = Objects.requireNonNull(signer, "signer");
         return this;
     }
 
+    /**
+     * 设置同步事件监听器。
+     *
+     * <p>listener 可被并发调用，必须是可信且线程安全的；其阻塞和外部副作用由调用方负责。
+     */
     public CapBuilder eventListener(CapEventListener listener) {
         this.eventListener = Objects.requireNonNull(listener, "listener");
         return this;

@@ -62,8 +62,8 @@ public final class InstrumentationOptions {
         /**
          * 设置可信的同步 transformer。
          *
-         * <p>transformer 可见完整脚本和 nonce 相关内容，并在生成 challenge 的调用线程执行；本库不提供执行超时、 内存隔离或 JVM
-         * sandbox，仅校验异常、返回值和输出大小。
+         * <p>transformer 可见完整脚本和 nonce 相关内容，并在生成 challenge 的调用线程执行；同一 {@link Cap}
+         * 可被并发调用，实现必须线程安全。其阻塞和外部副作用由调用方负责；本库不提供执行超时、内存隔离或 JVM sandbox，仅校验异常、返回值和输出大小。
          */
         public Builder transformer(InstrumentationTransformer transformer) {
             this.transformer = Objects.requireNonNull(transformer, "transformer");
