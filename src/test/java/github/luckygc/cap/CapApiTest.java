@@ -23,6 +23,13 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Cap 公共 API 测试")
 class CapApiTest {
 
+    private static final String RSW_P =
+            "10205806259106035084377733293751571221634735407569037626604267995729452116937228627283539979168064533928037302797902948501155720031179330069960893973885513";
+    private static final String RSW_Q =
+            "10845464008756549268190555743979032034274036693428991709208796705469030851618683070577460536493687572459333035321711534755267580660241588700371851381830067";
+    private static final String RSW_N =
+            "110686704463476821019825213696084061631122038578773520214764097348026028038263427036367632926659401989612436691479529501092690042328247421761368664760264261838558998566846860941584253683441579544363196073466607148146474251177495731808807464348333652254559011736542375235851606763258133047869235323164679119371";
+
     @Test
     @DisplayName("默认与严格配置可构建")
     void defaultAndStrictApiAreMinimal() {
@@ -216,7 +223,7 @@ class CapApiTest {
     @Test
     @DisplayName("Builder 暴露稳定高级 API")
     void builderExposesStableAdvancedApi() {
-        RswKeyPair keyPair = new RswKeyPair(1024, "15", "3", "5");
+        RswKeyPair keyPair = validRswKeyPair();
         InstrumentationOptions instrumentation =
                 InstrumentationOptions.builder()
                         .level(2)
@@ -280,11 +287,13 @@ class CapApiTest {
     @Test
     @DisplayName("RSW 密钥对执行基础校验")
     void rswKeyPairPerformsBasicValidation() {
-        assertThat(new RswKeyPair(1024, "15", "3", "5").bits()).isEqualTo(1024);
-        assertThatIllegalArgumentException().isThrownBy(() -> new RswKeyPair(1023, "15", "3", "5"));
-        assertThatIllegalArgumentException().isThrownBy(() -> new RswKeyPair(1024, "0", "3", "5"));
+        assertThat(validRswKeyPair().bits()).isEqualTo(1024);
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> new RswKeyPair(1024, "not-decimal", "3", "5"));
+                .isThrownBy(() -> new RswKeyPair(1023, RSW_N, RSW_P, RSW_Q));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RswKeyPair(1024, "0", RSW_P, RSW_Q));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RswKeyPair(1024, "not-decimal", RSW_P, RSW_Q));
     }
 
     @Test
@@ -329,6 +338,10 @@ class CapApiTest {
         assertThatThrownBy(operation::run)
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("protocol not implemented");
+    }
+
+    private static RswKeyPair validRswKeyPair() {
+        return new RswKeyPair(1024, RSW_N, RSW_P, RSW_Q);
     }
 
     private static void assertInvalidJsonLeaf(Object value) {
