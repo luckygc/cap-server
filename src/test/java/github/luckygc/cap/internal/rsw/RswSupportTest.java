@@ -65,6 +65,13 @@ class RswSupportTest {
     }
 
     @Test
+    @DisplayName("拒绝超过 modulus 固定宽度的值")
+    void rejectsValuesWiderThanModulus() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> RswSupport.fixedHex(BigInteger.ONE.shiftLeft(1024), 128));
+    }
+
+    @Test
     @DisplayName("默认 t 为 75000 并拒绝越界值")
     void validatesSquaringCount() throws IOException {
         RswKeyPair keyPair = keyPair(fixture());
@@ -85,6 +92,19 @@ class RswSupportTest {
         assertThat(RswSupport.verifySolution(expected, expected + "0")).isFalse();
         assertThat(RswSupport.verifySolution(expected, "not-hex")).isFalse();
         assertThat(RswSupport.verifySolution(expected, "0X" + expected)).isFalse();
+    }
+
+    @Test
+    @DisplayName("在规范化分配前限制 claimed y 长度")
+    void limitsClaimedSolutionBeforeNormalization() throws IOException {
+        String expected = (String) fixture().get("yHex");
+        String boundary = "0x" + "0".repeat(expected.length()) + expected;
+        String tooLong = "0x" + "0".repeat(expected.length() + 1) + expected;
+
+        assertThat(boundary).hasSize(expected.length() * 2 + 2);
+        assertThat(RswSupport.verifySolution(expected, boundary)).isTrue();
+        assertThat(RswSupport.verifySolution(expected, tooLong)).isFalse();
+        assertThat(RswSupport.verifySolution(expected, "0".repeat(10_000) + expected)).isFalse();
     }
 
     private static RswKeyPair keyPair(Map<String, @Nullable Object> fixture) {

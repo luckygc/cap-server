@@ -26,7 +26,7 @@ public record RswKeyPair(int bits, String modulus, String primeP, String primeQ)
         if (!parsedPrimeP.multiply(parsedPrimeQ).equals(parsedModulus)) {
             throw new IllegalArgumentException("modulus must equal primeP * primeQ");
         }
-        if (Math.abs(parsedModulus.bitLength() - bits) > 1) {
+        if (parsedModulus.bitLength() != bits) {
             throw new IllegalArgumentException("modulus bit length must match bits");
         }
         modulus = parsedModulus.toString();
@@ -43,13 +43,27 @@ public record RswKeyPair(int bits, String modulus, String primeP, String primeQ)
         validateBits(bits);
         Objects.requireNonNull(random, "random");
         int primeBits = bits / 2;
-        BigInteger primeP = BigInteger.probablePrime(primeBits, random);
+        BigInteger primeP = randomPrime(primeBits, random);
         BigInteger primeQ;
         do {
-            primeQ = BigInteger.probablePrime(primeBits, random);
+            primeQ = randomPrime(primeBits, random);
         } while (primeP.equals(primeQ));
         BigInteger modulus = primeP.multiply(primeQ);
         return new RswKeyPair(bits, modulus.toString(), primeP.toString(), primeQ.toString());
+    }
+
+    private static BigInteger randomPrime(int bits, SecureRandom random) {
+        int byteLength = (bits + 7) / 8;
+        BigInteger mask = BigInteger.ONE.shiftLeft(bits).subtract(BigInteger.ONE);
+        while (true) {
+            byte[] bytes = new byte[byteLength];
+            random.nextBytes(bytes);
+            BigInteger candidate =
+                    new BigInteger(1, bytes).setBit(bits - 1).setBit(bits - 2).setBit(0).and(mask);
+            if (candidate.isProbablePrime(PRIME_CERTAINTY)) {
+                return candidate;
+            }
+        }
     }
 
     private static void validateBits(int bits) {

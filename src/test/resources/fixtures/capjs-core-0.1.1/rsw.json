@@ -3,7 +3,7 @@
     "package": "capjs-core",
     "version": "0.1.1",
     "commit": "f9ffadb",
-    "generator": "core/src/rsw.js buildRswMinter equations",
+    "generator": "tools/fixtures/generate-rsw-fixture.mjs using core/src/rsw.js buildRswMinter().mint()",
     "note": "G uses bytes 00..7f and r uses bytes 00..1f as unsigned big-endian integers"
   },
   "bits": 1024,

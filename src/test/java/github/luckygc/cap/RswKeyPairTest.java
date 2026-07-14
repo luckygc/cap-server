@@ -52,6 +52,8 @@ class RswKeyPairTest {
     void validatesBits() {
         assertThatIllegalArgumentException().isThrownBy(() -> new RswKeyPair(1023, N, P, Q));
         assertThatIllegalArgumentException().isThrownBy(() -> new RswKeyPair(1024, "15", "3", "5"));
+        assertThatIllegalArgumentException().isThrownBy(() -> keyPairWithModulusBits(1023));
+        assertThatIllegalArgumentException().isThrownBy(() -> keyPairWithModulusBits(1025));
         assertThatIllegalArgumentException().isThrownBy(() -> RswKeyPair.generate(1022));
         assertThatIllegalArgumentException().isThrownBy(() -> RswKeyPair.generate(8194));
     }
@@ -64,8 +66,26 @@ class RswKeyPairTest {
         assertThat(keyPair.bits()).isEqualTo(1024);
         assertThat(keyPair.modulus()).containsOnlyDigits();
         assertThat(keyPair.primeP()).isNotEqualTo(keyPair.primeQ());
-        assertThat(new java.math.BigInteger(keyPair.primeP()).isProbablePrime(100)).isTrue();
-        assertThat(new java.math.BigInteger(keyPair.primeQ()).isProbablePrime(100)).isTrue();
+        java.math.BigInteger primeP = new java.math.BigInteger(keyPair.primeP());
+        java.math.BigInteger primeQ = new java.math.BigInteger(keyPair.primeQ());
+        assertThat(primeP.isProbablePrime(100)).isTrue();
+        assertThat(primeQ.isProbablePrime(100)).isTrue();
+        assertThat(primeP.testBit(511)).isTrue();
+        assertThat(primeP.testBit(510)).isTrue();
+        assertThat(primeQ.testBit(511)).isTrue();
+        assertThat(primeQ.testBit(510)).isTrue();
+        assertThat(new java.math.BigInteger(keyPair.modulus()).bitLength()).isEqualTo(1024);
+    }
+
+    private static RswKeyPair keyPairWithModulusBits(int modulusBits) {
+        int factorBit = modulusBits == 1023 ? 511 : 512;
+        java.math.BigInteger base = java.math.BigInteger.ONE.shiftLeft(factorBit);
+        java.math.BigInteger primeP = base.nextProbablePrime();
+        java.math.BigInteger primeQ =
+                base.add(java.math.BigInteger.valueOf(10_000)).nextProbablePrime();
+        java.math.BigInteger modulus = primeP.multiply(primeQ);
+        assertThat(modulus.bitLength()).isEqualTo(modulusBits);
+        return new RswKeyPair(1024, modulus.toString(), primeP.toString(), primeQ.toString());
     }
 
     private static final class DeterministicSecureRandom extends SecureRandom {

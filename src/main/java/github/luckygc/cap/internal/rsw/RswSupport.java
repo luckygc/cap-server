@@ -16,6 +16,7 @@ public final class RswSupport {
     public static final int MAX_T = 10_000_000;
     private static final BigInteger TWO = BigInteger.TWO;
     private static final int R_BYTES = 32;
+    private static final int MAX_FIXED_HEX_LENGTH = 8192 / 4;
 
     private RswSupport() {}
 
@@ -44,6 +45,16 @@ public final class RswSupport {
 
     /** 比较 expected y 与客户端声明值，忽略合法十六进制的大小写和前导零。 */
     public static boolean verifySolution(@Nullable String expectedY, @Nullable String claimedY) {
+        if (expectedY == null || claimedY == null) {
+            return false;
+        }
+        int expectedPrefixLength = expectedY.startsWith("0x") ? 2 : 0;
+        int expectedFixedHexLength = expectedY.length() - expectedPrefixLength;
+        if (expectedFixedHexLength < 1
+                || expectedFixedHexLength > MAX_FIXED_HEX_LENGTH
+                || claimedY.length() > expectedFixedHexLength * 2 + 2) {
+            return false;
+        }
         @Nullable String normalizedExpected = normalizeHex(expectedY);
         @Nullable String normalizedClaimed = normalizeHex(claimedY);
         if (normalizedExpected == null || normalizedClaimed == null) {
@@ -64,6 +75,18 @@ public final class RswSupport {
         byte[] bytes = new byte[byteLength];
         random.nextBytes(bytes);
         return new BigInteger(1, bytes);
+    }
+
+    static String fixedHex(BigInteger value, int byteLength) {
+        if (value.signum() < 0) {
+            throw new IllegalArgumentException("fixed-width hex value must be non-negative");
+        }
+        String hex = value.toString(16);
+        int width = byteLength * 2;
+        if (hex.length() > width) {
+            throw new IllegalArgumentException("value exceeds fixed-width hex encoding");
+        }
+        return "0".repeat(width - hex.length()) + hex;
     }
 
     private static @Nullable String normalizeHex(@Nullable String value) {
@@ -139,7 +162,11 @@ public final class RswSupport {
                             generator.mod(primeP).modPow(rP, primeP),
                             generator.mod(primeQ).modPow(rQ, primeQ));
             BigInteger y = crtCombine(hP.modPow(rP, primeP), hQ.modPow(rQ, primeQ));
-            return new MintedChallenge(fixedHex(modulus), fixedHex(x), fixedHex(y), t);
+            return new MintedChallenge(
+                    fixedHex(modulus, modulusBytes),
+                    fixedHex(x, modulusBytes),
+                    fixedHex(y, modulusBytes),
+                    t);
         }
 
         /** 返回该 minter 的连续平方次数。 */
@@ -167,15 +194,6 @@ public final class RswSupport {
             BigInteger difference = residueP.subtract(residueQ).mod(primeP);
             BigInteger coefficient = difference.multiply(qInverseModP).mod(primeP);
             return residueQ.add(primeQ.multiply(coefficient));
-        }
-
-        private String fixedHex(BigInteger value) {
-            String hex = value.toString(16);
-            int width = modulusBytes * 2;
-            if (hex.length() < width) {
-                return "0".repeat(width - hex.length()) + hex;
-            }
-            return hex;
         }
     }
 }
