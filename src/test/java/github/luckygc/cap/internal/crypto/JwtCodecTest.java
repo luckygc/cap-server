@@ -82,6 +82,30 @@ class JwtCodecTest {
         assertThat(jwt.verify("a".repeat(65_537))).isEmpty();
     }
 
+    @Test
+    @DisplayName("超过上限的输入在读取字符前拒绝")
+    void rejectsOversizedInputBeforeScanningCharacters() {
+        CharSequence oversized =
+                new CharSequence() {
+                    @Override
+                    public int length() {
+                        return 65_537;
+                    }
+
+                    @Override
+                    public char charAt(int index) {
+                        throw new AssertionError("不应扫描超长输入");
+                    }
+
+                    @Override
+                    public CharSequence subSequence(int start, int end) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
+
+        assertThat(JwtCodec.isAcceptableInput(oversized)).isFalse();
+    }
+
     private static String base64Url(String value) {
         return base64Url(value.getBytes(StandardCharsets.UTF_8));
     }

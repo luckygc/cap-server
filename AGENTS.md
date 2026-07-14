@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-- 本项目是 [Cap](https://github.com/tiagorangel1/cap) server 协议的 Java 实现，当前兼容 `capjs-core` 0.1.1。
+- 本项目是 [Cap](https://github.com/tiagozip/cap) server 协议的 Java 实现，当前兼容 `capjs-core` 0.1.1。
 - 目标运行环境为 Java 17+，使用 Maven 构建，并通过 `mise` 调用 Maven。
 - 这是库项目，不包含 Web 框架、JSON databind 或认证中间件；调用方自行暴露 `challenge` 和 `redeem` 端点。
 - 3.x 的公开入口是 `Cap` / `CapBuilder`；不存在 2.x `CapManager`、`CapStore` 或 `validateCapToken` 兼容层。

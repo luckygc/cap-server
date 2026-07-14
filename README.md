@@ -1,6 +1,6 @@
 # cap-server
 
-[Cap](https://github.com/tiagorangel1/cap) 服务端协议的 Java 17 实现，兼容
+[Cap](https://github.com/tiagozip/cap) 服务端协议的 Java 17 实现，兼容
 `capjs-core` 0.1.1。它是一个不绑定 Web 框架的库：应用只需持有一个线程安全的
 `Cap` 实例，并暴露 `challenge` 与 `redeem` 端点。
 

@@ -1,0 +1,104 @@
+{
+  "blockedOracle": {
+    "instr_error": true,
+    "reason": "instr_automated_browser",
+    "success": false
+  },
+  "challenge": {
+    "challenge": {
+      "c": 2,
+      "d": 2,
+      "s": 8
+    },
+    "expires": 4102445400000,
+    "instrumentation": "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",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoiZjg2NTEwNjY2NDEyNzJjOTYxMDI2YjIyMDBlNzE0MTc0Y2RmOWM2OTVkMzE3MmMyMDMiLCJjIjoyLCJzIjo4LCJkIjoyLCJleHAiOjQxMDI0NDU0MDAwMDAsImlhdCI6NDEwMjQ0NDgwMDAwMCwic2siOiJsb2dpbiIsIngiOnsidGVuYW50IjoiZml4dHVyZSJ9LCJlaSI6IkhqcG4ySGJ2V0E3WVFmOU5LRm42LS1pOFp5UHhGanZGVjZ0S0JOT2JWRV9SZ0RwNGtwWHAxaFkyX0EtSEZ1QTJXUTRCRy15c0ZqLWFIZ1EyMGpwMDJIV2lMNEoxMUZ4Y1hneTJ6dzVpZUVKUnVodU0tRkFsdGlNQXRwSEh0MFQxWkhfajBlcnVrVUczTllUdUFVcWdxbjJzc2c5V1pDYTNiVUQyRnB5ejQ3eUdmUlBlZFZCd0o0M0pLeVhKNXJuWXhObUlrbGJMQnUtOGNpQVVJV2hhX0RYdGw3TE11azJjeTVQQ21USHk5OVk2SGw1OE9wY0pQNzVhUkEwWU5CZlV3T3hjNmZDd0UyXzdzVXFQQ1B6RDZDaG9XM1FVM0NPZW1idXVEaEtVWE9Yb1h3UXlYcnJRQlhpNEduRk4ifQ.z03F7DJonAJNmpvrK3eoWOE-VuT7gGvbYD7bs6a-o7I"
+  },
+  "generator": "tools/fixtures/generate-capjs-core-fixtures.mjs",
+  "instrumentationMetadata": {
+    "blockAutomatedBrowsers": true,
+    "expectedVals": [
+      524320,
+      434079,
+      138164,
+      117756
+    ],
+    "expires": 4102445400000,
+    "id": "61e934dee2cadc85faa855a2cc4a71e3",
+    "vars": [
+      "rdsv4x0qzsye",
+      "gtw7uzae35ay",
+      "n5kukmuzobdn",
+      "vkc6ivww06xt"
+    ]
+  },
+  "kind": "format1-instrumentation",
+  "now": 4102444800000,
+  "options": {
+    "challengeCount": 2,
+    "challengeDifficulty": 2,
+    "challengeSize": 8,
+    "expiresMs": 600000,
+    "extra": {
+      "tenant": "fixture"
+    },
+    "instrumentation": {
+      "blockAutomatedBrowsers": true,
+      "obfuscationLevel": 1
+    },
+    "scope": "login"
+  },
+  "redeemed": {
+    "expires": 4102446000000,
+    "iat": 4102444800000,
+    "scope": "login",
+    "success": true,
+    "token": "fixture:login:4102446000000:4102444800000"
+  },
+  "request": {
+    "instr": {
+      "i": "61e934dee2cadc85faa855a2cc4a71e3",
+      "state": {
+        "gtw7uzae35ay": 434079,
+        "n5kukmuzobdn": 138164,
+        "rdsv4x0qzsye": 524320,
+        "vkc6ivww06xt": 117756
+      },
+      "ts": 4102444800001
+    },
+    "solutions": [
+      367,
+      101
+    ],
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoiZjg2NTEwNjY2NDEyNzJjOTYxMDI2YjIyMDBlNzE0MTc0Y2RmOWM2OTVkMzE3MmMyMDMiLCJjIjoyLCJzIjo4LCJkIjoyLCJleHAiOjQxMDI0NDU0MDAwMDAsImlhdCI6NDEwMjQ0NDgwMDAwMCwic2siOiJsb2dpbiIsIngiOnsidGVuYW50IjoiZml4dHVyZSJ9LCJlaSI6IkhqcG4ySGJ2V0E3WVFmOU5LRm42LS1pOFp5UHhGanZGVjZ0S0JOT2JWRV9SZ0RwNGtwWHAxaFkyX0EtSEZ1QTJXUTRCRy15c0ZqLWFIZ1EyMGpwMDJIV2lMNEoxMUZ4Y1hneTJ6dzVpZUVKUnVodU0tRkFsdGlNQXRwSEh0MFQxWkhfajBlcnVrVUczTllUdUFVcWdxbjJzc2c5V1pDYTNiVUQyRnB5ejQ3eUdmUlBlZFZCd0o0M0pLeVhKNXJuWXhObUlrbGJMQnUtOGNpQVVJV2hhX0RYdGw3TE11azJjeTVQQ21USHk5OVk2SGw1OE9wY0pQNzVhUkEwWU5CZlV3T3hjNmZDd0UyXzdzVXFQQ1B6RDZDaG9XM1FVM0NPZW1idXVEaEtVWE9Yb1h3UXlYcnJRQlhpNEduRk4ifQ.z03F7DJonAJNmpvrK3eoWOE-VuT7gGvbYD7bs6a-o7I"
+  },
+  "schema": "https://github.com/luckygc/cap-server/fixtures/capjs-core-v1",
+  "schemaVersion": 1,
+  "secret": "0123456789abcdef0123456789abcdef",
+  "source": {
+    "commit": "f9ffadb",
+    "package": "capjs-core",
+    "repository": "https://github.com/tiagozip/cap",
+    "sourceSha256": {
+      "crypto.js": "a7cdbe4fc286475d1279edfdf4ef5a2377949f795b2ec83a45514acc23539f17",
+      "index.js": "05b3ea7b00d29af72e2ccb7f0770e4b78a99835c8cad4af175315e9d3319e1bc",
+      "instrumentation.js": "73c7ab9f4b89dd30036ae361ec5ec3992dc8600508009e49f935a782408fb970",
+      "prng.js": "62603a23e7d6c6538e65cea26b9e8abd5eaac967f73968de2734dd3c03cb0ed2",
+      "rsw.js": "200f91cd42677377d214e48b0cd476dfe599fdae93f13e8dbea5631617ca1477"
+    },
+    "version": "0.1.1"
+  },
+  "tokenPayload": {
+    "c": 2,
+    "d": 2,
+    "ei": "Hjpn2HbvWA7YQf9NKFn6--i8ZyPxFjvFV6tKBNObVE_RgDp4kpXp1hY2_A-HFuA2WQ4BG-ysFj-aHgQ20jp02HWiL4J11FxcXgy2zw5ieEJRuhuM-FAltiMAtpHHt0T1ZH_j0erukUG3NYTuAUqgqn2ssg9WZCa3bUD2Fpyz47yGfRPedVBwJ43JKyXJ5rnYxNmIklbLBu-8ciAUIWha_DXtl7LMuk2cy5PCmTHy99Y6Hl58OpcJP75aRA0YNBfUwOxc6fCwE2_7sUqPCPzD6ChoW3QU3COembuuDhKUXOXoXwQyXrrQBXi4GnFN",
+    "exp": 4102445400000,
+    "iat": 4102444800000,
+    "n": "f8651066641272c961026b2200e714174cdf9c695d3172c203",
+    "s": 8,
+    "sk": "login",
+    "x": {
+      "tenant": "fixture"
+    }
+  }
+}

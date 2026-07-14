@@ -158,9 +158,38 @@ instrumentation 类失败在核心 API 中的 `instrError` 为 `true`，Web adap
 | `format2.json` | 上游 `generateChallenge()` / `validateChallenge()`、加密与 JS Number 向量 |
 | `format2-java.json` | Java 确定性生成、由上游 `validateChallenge()` 反向兑换 |
 
-常规 `mvn test` 读取这些静态 fixture，不需要 Node。复核或重生前，checkout 上游 0.1.1 并确认
-commit 是 `f9ffadb`，将其根目录设为 `CAP_UPSTREAM`。工具会复制未修改的上游源码到临时目录，
-只替换随机源以获得确定结果：
+统一生成结果位于子目录 `generated/`，每个 JSON 都含有 `schema`、
+`schemaVersion`、`kind` 及 `source` 元数据，对象字段按字典序输出：
+
+| 文件 | 上游 oracle |
+| --- | --- |
+| `generated/format1.json` | 官方 `generateChallenge()` 与 `validateChallenge()` 的 Format 1 完整往返 |
+| `generated/format1-instrumentation.json` | Format 1 instrumentation 正常兑换与 `instr_blocked=true` 完整 oracle |
+| `generated/format2.json` | 固定 RSW keypair 的 SHA-256 PoW / RSW / instrumentation 有序兑换与 blocked oracle |
+| `generated/number-string-vectors.json` | 指数边界加 492 个确定随机 binary64 位模式的 Node `String(number)` oracle |
+
+生成器只从当前目录的 `node_modules` 加载官方 `capjs-core@0.1.1`，不使用本地
+JavaScript 协议重写；它会验证 package name/version 以及五个协议源文件的 SHA-256，从而固定
+该版本对应的上游 commit `f9ffadb`，并将摘要写入 `source` 元数据。nonce、IV 和
+instrumentation 脚本保持真实随机，所以重生不要求逐字节相等；
+Java 测试会对每次新生成的 token 执行验签、解密和协议兑换。完整复核命令为：
+
+```bash
+repo=$(pwd)
+tmp=$(mktemp -d)
+cd "$tmp"
+npm init -y
+npm install capjs-core@0.1.1
+node "$repo/tools/fixtures/generate-capjs-core-fixtures.mjs" --output "$tmp/fixtures"
+cd "$repo"
+mise exec maven -- mvn -Dcap.fixture.dir="$tmp/fixtures" -Dtest='*CompatibilityTest' test
+```
+
+`number-string-vectors.json` 的检查也是显式 opt-in：它由上述生成器写入临时目录，再由
+`CapjsCoreCompatibilityTest` 用原始 IEEE-754 bits 还原 `double`，与 Node 的最短字符串逐项比较。
+
+为定位单个旧 fixture 的差异，仍可 checkout 上游 0.1.1，确认 commit 是 `f9ffadb`，
+将其根目录设为 `CAP_UPSTREAM`，运行以下精确随机源工具：
 
 ```bash
 export CAP_UPSTREAM=/path/to/cap
@@ -170,14 +199,32 @@ node tools/fixtures/generate-format2-fixture.mjs --check "$CAP_UPSTREAM"
 ```
 
 查看重新生成的 instrumentation / Format 2 JSON 时使用 `--print` 替代 `--check`，人工审查后再更新
-对应 fixture；RSW 工具当前只提供 `--check`。Format 1 fixture 的生成来源和固定输入记录在文件内，
-当前没有独立生成脚本。
+对应旧 fixture；RSW 工具只提供 `--check`。新的 Format 1 完整生成入口是统一生成器。
 
 额外的 instrumentation JavaScript 语法/执行检查需要 PATH 中的 Node 24，并保持显式 opt-in：
 
 ```bash
 mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
 ```
+
+真实 iframe 执行需要开发机已安装 Chromium 和 Playwright，不进入 Maven 默认生命周期。
+在允许下载浏览器的独立临时目录中可复现：
+
+```bash
+repo=$(pwd)
+tmp=$(mktemp -d)
+cd "$tmp"
+npm init -y
+npm install playwright
+npx playwright install chromium
+node "$repo/tools/fixtures/check-instrumentation-browser.mjs" \
+  --fixture "$repo/src/test/resources/fixtures/capjs-core-0.1.1/generated/format1-instrumentation.json"
+```
+
+该入口在真实 iframe 中执行 raw-deflate 解压后的上游脚本，并验证
+`cap:instr` 的 nonce 及 result/blocked wire。headless Playwright 在
+`blockAutomatedBrowsers=true` 时预期走 blocked 分支。当前构建环境没有预装浏览器，因此本次发布验证
+不声称已执行该可选项；Node 语法/运行检查和完整上游 validation oracle 已独立覆盖。
 
 ## 从 2.x 迁移
 

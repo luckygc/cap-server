@@ -90,6 +90,31 @@ class CapEventsTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test
+    @DisplayName("运行时日志包含诊断字段但不泄露协议秘密")
+    void runtimeLogsExcludeSensitiveProtocolValues() {
+        String token = "sensitive-token-value";
+        String solution = "sensitive-solution-value";
+        String digest = "sensitive-internal-digest";
+        CapturingLoggerProvider.reset();
+        CapEvents events = new CapEvents(new CapEventListener() {});
+
+        events.challengeCreated(2, List.of(CapProtocol.RSW), Duration.ofMillis(3));
+        events.redeemFailed(2, List.of(CapProtocol.RSW), "invalid_solution", Duration.ofMillis(4));
+        events.warn(
+                CapEvents.Warning.NONCE_CONSUMER_FAILURE,
+                new IllegalStateException(token + solution + digest));
+
+        assertThat(CapturingLoggerProvider.messages())
+                .anyMatch(message -> message.contains("format=2"))
+                .anyMatch(message -> message.contains("reason=invalid_solution"))
+                .noneMatch(
+                        message ->
+                                message.contains(token)
+                                        || message.contains(solution)
+                                        || message.contains(digest));
+    }
+
     private static List<String> componentNames(Class<?> recordType) {
         return Arrays.stream(recordType.getRecordComponents())
                 .map(RecordComponent::getName)

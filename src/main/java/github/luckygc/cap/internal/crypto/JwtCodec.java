@@ -44,7 +44,7 @@ public final class JwtCodec {
 
     /** 验证 JWT，任何不可信输入错误都安全返回 empty。 */
     public Optional<Map<String, @Nullable Object>> verify(String token) {
-        if (!isAscii(token) || token.length() > ProtocolJsonCodec.MAX_INPUT_BYTES) {
+        if (!isAcceptableInput(token)) {
             return Optional.empty();
         }
         int firstDot = token.indexOf('.');
@@ -78,7 +78,11 @@ public final class JwtCodec {
         }
     }
 
-    private static boolean isAscii(String value) {
+    static boolean isAcceptableInput(CharSequence value) {
+        return value.length() <= ProtocolJsonCodec.MAX_INPUT_BYTES && isAscii(value);
+    }
+
+    private static boolean isAscii(CharSequence value) {
         for (int index = 0; index < value.length(); index++) {
             if (value.charAt(index) > 0x7f) {
                 return false;

@@ -1,0 +1,188 @@
+package github.luckygc.cap.internal.protocol;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import github.luckygc.cap.CapProtocol;
+import github.luckygc.cap.InstrumentationOptions;
+import github.luckygc.cap.RedeemRequest;
+import github.luckygc.cap.internal.json.ProtocolJsonCodec;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+@DisplayName("capjs-core 0.1.1 生成 fixture 兼容性")
+class CapjsCoreCompatibilityTest {
+
+    private static final String SECRET = "0123456789abcdef0123456789abcdef";
+    private static final String RESOURCE_ROOT = "fixtures/capjs-core-0.1.1/generated/";
+    private static final ProtocolJsonCodec JSON = new ProtocolJsonCodec();
+
+    @Test
+    @DisplayName("Java 接受上游生成的 Format 1")
+    void acceptsGeneratedFormat1() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture("format1.json");
+        assertMetadata(fixture, "format1");
+
+        Format1Protocol.ValidationResult result =
+                format1(fixture).validate(request(fixture, false), "login");
+
+        assertThat(result).isInstanceOf(Format1Protocol.Validated.class);
+    }
+
+    @Test
+    @DisplayName("Java 接受上游生成的 Format 1 instrumentation 并匹配 blocked oracle")
+    void acceptsGeneratedFormat1Instrumentation() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture("format1-instrumentation.json");
+        assertMetadata(fixture, "format1-instrumentation");
+        Format1Protocol protocol = format1(fixture);
+
+        assertThat(protocol.validate(request(fixture, false), "login"))
+                .isInstanceOf(Format1Protocol.Validated.class);
+        ProtocolFailure blocked =
+                (ProtocolFailure) protocol.validate(request(fixture, true), "login");
+        assertThat(blocked.reason()).isEqualTo(oracleReason(fixture));
+        assertThat(blocked.instrError()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Java 接受上游生成的 Format 2")
+    void acceptsGeneratedFormat2() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture("format2.json");
+        assertMetadata(fixture, "format2");
+        Clock clock = fixtureClock(fixture);
+        Format2Protocol protocol =
+                new Format2Protocol(
+                        SECRET,
+                        List.of(CapProtocol.SHA256_POW),
+                        1,
+                        4,
+                        1,
+                        null,
+                        InstrumentationOptions.defaults(),
+                        clock,
+                        new SecureRandom());
+
+        assertThat(protocol.validate(request(fixture, false), "login"))
+                .isInstanceOf(Format2Protocol.Validated.class);
+        ProtocolFailure blocked =
+                (ProtocolFailure) protocol.validate(request(fixture, true), "login");
+        assertThat(blocked.reason()).isEqualTo(oracleReason(fixture));
+        assertThat(blocked.instrError()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Java NumberToString 匹配 Node 随机 binary64 oracle")
+    void matchesNodeBinary64Strings() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture("number-string-vectors.json");
+        assertMetadata(fixture, "number-string-vectors");
+        @SuppressWarnings("unchecked")
+        List<Map<String, @Nullable Object>> vectors =
+                (List<Map<String, @Nullable Object>>) fixture.get("vectors");
+
+        for (Map<String, @Nullable Object> vector : vectors) {
+            long bits = Long.parseUnsignedLong((String) vector.get("bits"), 16);
+            double value = Double.longBitsToDouble(bits);
+            assertThat(Format2Protocol.jsNumberToString(value))
+                    .as((String) vector.get("label"))
+                    .isEqualTo(vector.get("jsString"));
+        }
+    }
+
+    private static Format1Protocol format1(Map<String, @Nullable Object> fixture) {
+        return new Format1Protocol(
+                SECRET,
+                1,
+                4,
+                1,
+                InstrumentationOptions.defaults(),
+                fixtureClock(fixture),
+                new SecureRandom());
+    }
+
+    private static Clock fixtureClock(Map<String, @Nullable Object> fixture) {
+        return Clock.fixed(Instant.ofEpochMilli((Long) fixture.get("now")), ZoneOffset.UTC);
+    }
+
+    private static void assertMetadata(Map<String, @Nullable Object> fixture, String kind) {
+        assertThat(fixture)
+                .containsEntry(
+                        "schema", "https://github.com/luckygc/cap-server/fixtures/capjs-core-v1")
+                .containsEntry("schemaVersion", 1L)
+                .containsEntry("kind", kind);
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> source =
+                (Map<String, @Nullable Object>) fixture.get("source");
+        assertThat(source)
+                .containsEntry("package", "capjs-core")
+                .containsEntry("version", "0.1.1")
+                .containsEntry("commit", "f9ffadb");
+    }
+
+    private static String oracleReason(Map<String, @Nullable Object> fixture) {
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> oracle =
+                (Map<String, @Nullable Object>) fixture.get("blockedOracle");
+        assertThat(oracle).containsEntry("success", false).containsEntry("instr_error", true);
+        return (String) oracle.get("reason");
+    }
+
+    private static RedeemRequest request(
+            Map<String, @Nullable Object> fixture, boolean blockedOracle) {
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> wire = (Map<String, @Nullable Object>) fixture.get("request");
+        @SuppressWarnings("unchecked")
+        List<@Nullable Object> solutions = (List<@Nullable Object>) wire.get("solutions");
+        RedeemRequest.InstrumentationResult instrumentation = instrumentation(wire.get("instr"));
+        if (!blockedOracle) {
+            return new RedeemRequest(
+                    (String) wire.get("token"), solutions, instrumentation, false, false);
+        }
+        if (fixture.get("kind").equals("format2")) {
+            @SuppressWarnings("unchecked")
+            List<@Nullable Object> blockedSolutions =
+                    (List<@Nullable Object>) fixture.get("blockedSolutions");
+            return new RedeemRequest(
+                    (String) wire.get("token"), blockedSolutions, null, false, false);
+        }
+        return new RedeemRequest((String) wire.get("token"), solutions, null, true, false);
+    }
+
+    private static RedeemRequest.@Nullable InstrumentationResult instrumentation(
+            @Nullable Object value) {
+        if (!(value instanceof Map<?, ?> raw)) {
+            return null;
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> map = (Map<String, @Nullable Object>) raw;
+        @SuppressWarnings("unchecked")
+        Map<String, Object> state = (Map<String, Object>) map.get("state");
+        return new RedeemRequest.InstrumentationResult(
+                (String) map.get("i"), state, (Long) map.get("ts"));
+    }
+
+    private static Map<String, @Nullable Object> fixture(String name) throws IOException {
+        String externalDirectory = System.getProperty("cap.fixture.dir");
+        if (externalDirectory != null) {
+            return JSON.readObject(Files.readAllBytes(Path.of(externalDirectory, name)));
+        }
+        try (InputStream input =
+                CapjsCoreCompatibilityTest.class
+                        .getClassLoader()
+                        .getResourceAsStream(RESOURCE_ROOT + name)) {
+            if (input == null) {
+                throw new IOException("fixture 不存在: " + RESOURCE_ROOT + name);
+            }
+            return JSON.readObject(input.readAllBytes());
+        }
+    }
+}
