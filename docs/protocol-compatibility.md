@@ -1,7 +1,8 @@
 # capjs-core 0.1.1 协议兼容性
 
-本文记录 cap-server 3.0 与上游 `capjs-core` 0.1.1（fixture 固定到 commit
-`f9ffadb`）之间的 wire 约定。宿主应用负责 HTTP 和 JSON 序列化，并必须显式处理 Web wire 与
+本文记录 cap-server 3.0 与官方 npm artifact `capjs-core@0.1.1` 之间的 wire 约定。
+fixture 以 package-lock 的 resolved URL 和 integrity 为权威来源；`f9ffadb` 仅是已核对的上游
+语义参考 commit，不用于证明 npm tarball 的身份。宿主应用负责 HTTP 和 JSON 序列化，并必须显式处理 Web wire 与
 核心 Java API 的命名差异。
 
 ## Profile 映射
@@ -169,8 +170,10 @@ instrumentation 类失败在核心 API 中的 `instrError` 为 `true`，Web adap
 | `generated/number-string-vectors.json` | 指数边界加 492 个确定随机 binary64 位模式的 Node `String(number)` oracle |
 
 生成器只从当前目录的 `node_modules` 加载官方 `capjs-core@0.1.1`，不使用本地
-JavaScript 协议重写；它会验证 package name/version 以及五个协议源文件的 SHA-256，从而固定
-该版本对应的上游 commit `f9ffadb`，并将摘要写入 `source` 元数据。nonce、IV 和
+JavaScript 协议重写。它从 `package-lock.json` 读取并验证 npm version、resolved URL 和
+integrity，这三者是 fixture 的 artifact 身份；同时计算实际安装的五个协议源文件
+SHA-256 用于审计和重生比对。`semanticReferenceCommit=f9ffadb` 只说明已经对照过的
+语义参考，文件摘要不被声称为该 commit 的身份证明。nonce、IV 和
 instrumentation 脚本保持真实随机，所以重生不要求逐字节相等；
 Java 测试会对每次新生成的 token 执行验签、解密和协议兑换。完整复核命令为：
 
@@ -187,6 +190,8 @@ mise exec maven -- mvn -Dcap.fixture.dir="$tmp/fixtures" -Dtest='*CompatibilityT
 
 `number-string-vectors.json` 的检查也是显式 opt-in：它由上述生成器写入临时目录，再由
 `CapjsCoreCompatibilityTest` 用原始 IEEE-754 bits 还原 `double`，与 Node 的最短字符串逐项比较。
+随机位模式使用 xorshift64，每一次 shift/xor 后都显式截断回无符号 64 bit；测试额外
+断言总数恰为 500、bits 全部唯一以及 8 个边界标签精确存在。
 
 为定位单个旧 fixture 的差异，仍可 checkout 上游 0.1.1，确认 commit 是 `f9ffadb`，
 将其根目录设为 `CAP_UPSTREAM`，运行以下精确随机源工具：
@@ -221,9 +226,11 @@ node "$repo/tools/fixtures/check-instrumentation-browser.mjs" \
   --fixture "$repo/src/test/resources/fixtures/capjs-core-0.1.1/generated/format1-instrumentation.json"
 ```
 
-该入口在真实 iframe 中执行 raw-deflate 解压后的上游脚本，并验证
-`cap:instr` 的 nonce 及 result/blocked wire。headless Playwright 在
-`blockAutomatedBrowsers=true` 时预期走 blocked 分支。当前构建环境没有预装浏览器，因此本次发布验证
+该入口先确认 options 和认证 metadata 都设置 `blockAutomatedBrowsers=true`，再在真实
+iframe 中执行 raw-deflate 解压后的上游脚本。上游 blocked wire 固定为
+`{type:"cap:instr", nonce, result:"", blocked:true}`；检查器对字段集和值做精确断言。
+headless Chromium 若返回普通 `result.i` 路径或没有触发 blocked，命令必须失败，不会把普通结果
+当作通过。当前构建环境没有预装浏览器，因此本次发布验证
 不声称已执行该可选项；Node 语法/运行检查和完整上游 validation oracle 已独立覆盖。
 
 ## 从 2.x 迁移

@@ -10,12 +10,18 @@ if (args.length !== 2 || args[0] !== "--fixture") {
   );
 }
 
-const playwrightPath = resolve(process.cwd(), "node_modules/playwright/index.mjs");
-const { chromium } = await import(pathToFileURL(playwrightPath).href);
 const fixture = JSON.parse(await readFile(resolve(args[1]), "utf8"));
 if (fixture.kind !== "format1-instrumentation") {
   throw new Error("expected a generated format1-instrumentation fixture");
 }
+if (
+  fixture.options?.instrumentation?.blockAutomatedBrowsers !== true ||
+  fixture.instrumentationMetadata?.blockAutomatedBrowsers !== true
+) {
+  throw new Error("fixture must authenticate blockAutomatedBrowsers=true");
+}
+const playwrightPath = resolve(process.cwd(), "node_modules/playwright/index.mjs");
+const { chromium } = await import(pathToFileURL(playwrightPath).href);
 const script = inflateRawSync(
   Buffer.from(fixture.challenge.instrumentation, "base64"),
 ).toString("utf8");
@@ -31,14 +37,20 @@ try {
   await page.waitForFunction(() => window.capInstrumentationMessage, null, { timeout: 10_000 });
   const message = await page.evaluate(() => window.capInstrumentationMessage);
   const expectedId = fixture.instrumentationMetadata.id;
-  if (message.nonce !== expectedId) {
-    throw new Error(`unexpected instrumentation nonce: ${message.nonce}`);
-  }
-  if (message.blocked !== true && message.result?.i !== expectedId) {
-    throw new Error(`unexpected instrumentation wire: ${JSON.stringify(message)}`);
+  const fields = Object.keys(message).sort();
+  if (
+    JSON.stringify(fields) !== JSON.stringify(["blocked", "nonce", "result", "type"]) ||
+    message.type !== "cap:instr" ||
+    message.nonce !== expectedId ||
+    message.result !== "" ||
+    message.blocked !== true
+  ) {
+    throw new Error(
+      `headless Chromium did not emit the exact blocked wire: ${JSON.stringify(message)}`,
+    );
   }
   process.stdout.write(
-    `${JSON.stringify({ browser: "chromium", executed: true, blocked: message.blocked === true })}\n`,
+    `${JSON.stringify({ browser: "chromium", executed: true, blocked: true })}\n`,
   );
 } finally {
   await browser.close();

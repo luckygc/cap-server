@@ -5,19 +5,16 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const PACKAGE = "capjs-core";
 const VERSION = "0.1.1";
-const COMMIT = "f9ffadb";
+const SEMANTIC_REFERENCE_COMMIT = "f9ffadb";
+const NPM_RESOLVED = "https://registry.npmjs.org/capjs-core/-/capjs-core-0.1.1.tgz";
+const NPM_INTEGRITY =
+  "sha512-I5ZAsG6avdMFs3RxEbNFj9VggWMV6JEUIUvKFCOLR2Q9plxrEe+i4515ejtkCP6nkyE8b75L81ygjYZKmugWMg==";
 const SCHEMA = "https://github.com/luckygc/cap-server/fixtures/capjs-core-v1";
 const SCHEMA_VERSION = 1;
 const SECRET = "0123456789abcdef0123456789abcdef";
 const NOW = 4_102_444_800_000;
 const TTL_MS = 600_000;
-const SOURCE_SHA256 = {
-  "crypto.js": "a7cdbe4fc286475d1279edfdf4ef5a2377949f795b2ec83a45514acc23539f17",
-  "index.js": "05b3ea7b00d29af72e2ccb7f0770e4b78a99835c8cad4af175315e9d3319e1bc",
-  "instrumentation.js": "73c7ab9f4b89dd30036ae361ec5ec3992dc8600508009e49f935a782408fb970",
-  "prng.js": "62603a23e7d6c6538e65cea26b9e8abd5eaac967f73968de2734dd3c03cb0ed2",
-  "rsw.js": "200f91cd42677377d214e48b0cd476dfe599fdae93f13e8dbea5631617ca1477",
-};
+const SOURCE_NAMES = ["crypto.js", "index.js", "instrumentation.js", "prng.js", "rsw.js"];
 
 const args = process.argv.slice(2);
 if (args.length !== 2 || args[0] !== "--output") {
@@ -32,14 +29,27 @@ const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json
 if (packageJson.name !== PACKAGE || packageJson.version !== VERSION) {
   throw new Error(`expected ${PACKAGE}@${VERSION} in ${resolve(process.cwd(), "node_modules")}`);
 }
-for (const [name, expected] of Object.entries(SOURCE_SHA256)) {
-  const actual = createHash("sha256")
-    .update(await readFile(resolve(packageRoot, "src", name)))
-    .digest("hex");
-  if (actual !== expected) {
-    throw new Error(`${PACKAGE}@${VERSION} ${name} does not match upstream ${COMMIT}`);
-  }
+const packageLock = JSON.parse(
+  await readFile(resolve(process.cwd(), "package-lock.json"), "utf8"),
+);
+const lockedPackage = packageLock.packages?.[`node_modules/${PACKAGE}`];
+if (
+  lockedPackage?.version !== VERSION ||
+  lockedPackage?.resolved !== NPM_RESOLVED ||
+  lockedPackage?.integrity !== NPM_INTEGRITY
+) {
+  throw new Error(`package-lock.json does not pin the expected ${PACKAGE}@${VERSION} artifact`);
 }
+const filesSha256 = Object.fromEntries(
+  await Promise.all(
+    SOURCE_NAMES.map(async (name) => [
+      name,
+      createHash("sha256")
+        .update(await readFile(resolve(packageRoot, "src", name)))
+        .digest("hex"),
+    ]),
+  ),
+);
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
@@ -50,11 +60,15 @@ const prng = await import(pathToFileURL(resolve(packageRoot, "src/prng.js")).hre
 Date.now = () => NOW;
 
 const source = {
-  commit: COMMIT,
+  npm: {
+    filesSha256,
+    integrity: lockedPackage.integrity,
+    resolved: lockedPackage.resolved,
+    version: lockedPackage.version,
+  },
   package: PACKAGE,
   repository: "https://github.com/tiagozip/cap",
-  sourceSha256: SOURCE_SHA256,
-  version: VERSION,
+  semanticReferenceCommit: SEMANTIC_REFERENCE_COMMIT,
 };
 
 function envelope(kind, value) {
@@ -293,10 +307,10 @@ const curatedNumbers = [
 ];
 let randomState = 0x243f6a8885a308d3n;
 function nextBits() {
-  randomState ^= randomState << 13n;
-  randomState ^= randomState >> 7n;
-  randomState ^= randomState << 17n;
-  return BigInt.asUintN(64, randomState);
+  randomState = BigInt.asUintN(64, randomState ^ (randomState << 13n));
+  randomState = BigInt.asUintN(64, randomState ^ (randomState >> 7n));
+  randomState = BigInt.asUintN(64, randomState ^ (randomState << 17n));
+  return randomState;
 }
 function bitsOf(value) {
   const buffer = Buffer.allocUnsafe(8);
@@ -323,7 +337,7 @@ for (let index = 0; numberVectors.length < 500; index++) {
 await writeFixture(
   "number-string-vectors.json",
   envelope("number-string-vectors", {
-    algorithm: "deterministic xorshift64 bit patterns compared with Node String(number)",
+    algorithm: "xorshift64 with uint64 truncation after each step; Node String(number)",
     now: NOW,
     vectors: numberVectors,
   }),

@@ -16,6 +16,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,6 +91,28 @@ class CapjsCoreCompatibilityTest {
         List<Map<String, @Nullable Object>> vectors =
                 (List<Map<String, @Nullable Object>>) fixture.get("vectors");
 
+        assertThat(fixture)
+                .containsEntry(
+                        "algorithm",
+                        "xorshift64 with uint64 truncation after each step; Node String(number)");
+        assertThat(vectors).hasSize(500);
+        assertThat(vectors.stream().map(vector -> vector.get("bits"))).doesNotHaveDuplicates();
+        Set<String> boundaryLabels =
+                vectors.stream()
+                        .limit(8)
+                        .map(vector -> (String) vector.get("label"))
+                        .collect(Collectors.toSet());
+        assertThat(boundaryLabels)
+                .containsExactlyInAnyOrder(
+                        "negative-zero",
+                        "plain-upper-bound",
+                        "scientific-upper-bound",
+                        "plain-lower-bound",
+                        "scientific-lower-bound",
+                        "minimum-subnormal",
+                        "maximum-finite",
+                        "shortest-large-integer");
+
         for (Map<String, @Nullable Object> vector : vectors) {
             long bits = Long.parseUnsignedLong((String) vector.get("bits"), 16);
             double value = Double.longBitsToDouble(bits);
@@ -124,8 +148,29 @@ class CapjsCoreCompatibilityTest {
                 (Map<String, @Nullable Object>) fixture.get("source");
         assertThat(source)
                 .containsEntry("package", "capjs-core")
+                .containsEntry("semanticReferenceCommit", "f9ffadb");
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> npm = (Map<String, @Nullable Object>) source.get("npm");
+        assertThat(npm)
                 .containsEntry("version", "0.1.1")
-                .containsEntry("commit", "f9ffadb");
+                .containsEntry(
+                        "resolved", "https://registry.npmjs.org/capjs-core/-/capjs-core-0.1.1.tgz")
+                .containsEntry(
+                        "integrity",
+                        "sha512-I5ZAsG6avdMFs3RxEbNFj9VggWMV6JEUIUvKFCOLR2Q9plxrEe+i4515ejtkCP6nkyE8b75L81ygjYZKmugWMg==");
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> filesSha256 =
+                (Map<String, @Nullable Object>) npm.get("filesSha256");
+        assertThat(filesSha256)
+                .containsOnlyKeys(
+                        "crypto.js", "index.js", "instrumentation.js", "prng.js", "rsw.js")
+                .allSatisfy(
+                        (name, digest) ->
+                                assertThat(digest)
+                                        .as(name)
+                                        .isInstanceOf(String.class)
+                                        .asString()
+                                        .matches("[0-9a-f]{64}"));
     }
 
     private static String oracleReason(Map<String, @Nullable Object> fixture) {
