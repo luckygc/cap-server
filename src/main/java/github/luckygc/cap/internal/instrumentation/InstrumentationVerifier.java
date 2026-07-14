@@ -23,7 +23,8 @@ public final class InstrumentationVerifier {
         this(Clock.systemUTC());
     }
 
-    InstrumentationVerifier(Clock clock) {
+    /** 使用调用方时钟，供内部协议组合器注入。 */
+    public InstrumentationVerifier(Clock clock) {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 

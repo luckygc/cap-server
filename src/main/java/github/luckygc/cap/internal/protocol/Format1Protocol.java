@@ -222,7 +222,7 @@ public final class Format1Protocol {
                 && difficulty <= MAX_DIFFICULTY;
     }
 
-    private static String sha256Hex(String value) {
+    static String sha256Hex(String value) {
         try {
             return HEX.formatHex(
                     MessageDigest.getInstance("SHA-256")
@@ -232,7 +232,7 @@ public final class Format1Protocol {
         }
     }
 
-    private static String signatureHex(String token) {
+    static String signatureHex(String token) {
         int lastDot = token.lastIndexOf('.');
         return HEX.formatHex(Base64.getUrlDecoder().decode(token.substring(lastDot + 1)));
     }

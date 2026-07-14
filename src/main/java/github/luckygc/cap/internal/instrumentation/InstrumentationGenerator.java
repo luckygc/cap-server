@@ -41,7 +41,8 @@ public final class InstrumentationGenerator {
         return BuiltinInstrumentationTransformer.INSTANCE;
     }
 
-    InstrumentationGenerator(SecureRandom random, Clock clock) {
+    /** 使用调用方时钟与随机源，供内部协议组合器注入。 */
+    public InstrumentationGenerator(SecureRandom random, Clock clock) {
         this.random = Objects.requireNonNull(random, "random");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
