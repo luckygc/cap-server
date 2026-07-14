@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 /** 仅转换库生成的无注释、无模板字面量脚本，避免通用 JavaScript minifier 的语法歧义。 */
-public final class BuiltinInstrumentationTransformer implements InstrumentationTransformer {
+final class BuiltinInstrumentationTransformer implements InstrumentationTransformer {
 
-    public static final BuiltinInstrumentationTransformer INSTANCE =
+    static final BuiltinInstrumentationTransformer INSTANCE =
             new BuiltinInstrumentationTransformer();
 
     private BuiltinInstrumentationTransformer() {}
@@ -19,11 +19,10 @@ public final class BuiltinInstrumentationTransformer implements InstrumentationT
         if (level == 0) {
             return script;
         }
-        String compact = compactKnownTemplate(script);
         if (level == 1) {
-            return compact;
+            return compactKnownTemplate(script);
         }
-        String tabled = tableStrings(compact);
+        String tabled = tableStrings(script);
         return level == 2 ? tabled : compactKnownTemplate(tabled);
     }
 
@@ -60,15 +59,31 @@ public final class BuiltinInstrumentationTransformer implements InstrumentationT
         int cursor = 0;
         for (Literal literal : literals) {
             transformed.append(script, cursor, literal.start());
+            boolean objectKey = nextNonWhitespace(script, literal.end()) == ':';
+            if (objectKey) {
+                transformed.append('[');
+            }
             transformed
                     .append(tableName)
                     .append('[')
                     .append(indices.get(literal.quoted()))
                     .append(']');
+            if (objectKey) {
+                transformed.append(']');
+            }
             cursor = literal.end();
         }
         transformed.append(script, cursor, script.length());
         return transformed.toString();
+    }
+
+    private static char nextNonWhitespace(String script, int start) {
+        for (int index = start; index < script.length(); index++) {
+            if (!Character.isWhitespace(script.charAt(index))) {
+                return script.charAt(index);
+            }
+        }
+        return '\0';
     }
 
     private static int quotedEnd(String script, int start, char quote) {

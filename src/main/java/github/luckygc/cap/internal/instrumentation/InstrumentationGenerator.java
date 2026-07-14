@@ -1,6 +1,7 @@
 package github.luckygc.cap.internal.instrumentation;
 
 import github.luckygc.cap.InstrumentationOptions;
+import github.luckygc.cap.InstrumentationTransformer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +34,11 @@ public final class InstrumentationGenerator {
 
     public InstrumentationGenerator() {
         this(new SecureRandom(), Clock.systemUTC());
+    }
+
+    /** 返回仅供 library 生成模板使用的内置 transformer，不暴露其 internal 实现类型。 */
+    public static InstrumentationTransformer builtInTransformer() {
+        return BuiltinInstrumentationTransformer.INSTANCE;
     }
 
     InstrumentationGenerator(SecureRandom random, Clock clock) {

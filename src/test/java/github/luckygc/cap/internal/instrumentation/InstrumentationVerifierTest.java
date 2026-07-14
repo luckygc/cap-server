@@ -3,6 +3,7 @@ package github.luckygc.cap.internal.instrumentation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import github.luckygc.cap.RedeemRequest;
+import java.math.BigInteger;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -44,6 +45,7 @@ class InstrumentationVerifierTest {
         assertThat(VERIFIER.verify(null, output(validState())).reason()).isEqualTo("missing_meta");
         assertThat(VERIFIER.verify(META, null).reason()).isEqualTo("missing_output");
         assertThat(VERIFIER.verify(META, META.id(), null).reason()).isEqualTo("invalid_state");
+        assertThat(VERIFIER.verify(META, 42L, validState()).reason()).isEqualTo("id_mismatch");
         assertThat(
                         VERIFIER.verify(
                                         META,
@@ -77,6 +79,45 @@ class InstrumentationVerifierTest {
             oversized.put("key" + index, index);
         }
         assertThat(VERIFIER.verify(META, output(oversized)).reason()).isEqualTo("invalid_state");
+
+        for (Object invalid :
+                List.of(
+                        Double.NaN,
+                        Double.POSITIVE_INFINITY,
+                        Float.NEGATIVE_INFINITY,
+                        BigInteger.TEN.pow(10_000))) {
+            Map<String, Object> state = new LinkedHashMap<>(validState());
+            state.put("aaaaaaaaaaaa", invalid);
+            assertThat(VERIFIER.verify(META, META.id(), state).reason())
+                    .isEqualTo("failed_challenge");
+        }
+    }
+
+    @Test
+    @DisplayName("额外 state 字段按上游 every 语义忽略")
+    void acceptsAdditionalStateKeys() {
+        Map<String, Object> state = new LinkedHashMap<>(validState());
+        state.put("additional", "ignored");
+
+        assertThat(VERIFIER.verify(META, output(state)).valid()).isTrue();
+    }
+
+    @Test
+    @DisplayName("匹配但非法的 metadata id 返回 invalid_meta")
+    void matchingInvalidMetadataIdReturnsInvalidMeta() {
+        for (String invalidId : List.of("x".repeat(65), "z".repeat(32))) {
+            InstrumentationGenerator.GeneratedInstrumentation invalid =
+                    new InstrumentationGenerator.GeneratedInstrumentation(
+                            invalidId,
+                            META.expires(),
+                            META.expectedVals(),
+                            META.vars(),
+                            true,
+                            "blob");
+
+            assertThat(VERIFIER.verify(invalid, invalidId, validState()).reason())
+                    .isEqualTo("invalid_meta");
+        }
     }
 
     @Test
@@ -95,6 +136,12 @@ class InstrumentationVerifierTest {
                 new InstrumentationGenerator.GeneratedInstrumentation(
                         META.id(), META.expires(), META.expectedVals(), META.vars(), false, "blob");
         assertThat(VERIFIER.verify(nonBlocking, null, true, false).valid()).isTrue();
+
+        InstrumentationGenerator.GeneratedInstrumentation expiresNow =
+                new InstrumentationGenerator.GeneratedInstrumentation(
+                        META.id(), NOW, META.expectedVals(), META.vars(), true, "blob");
+        assertThat(VERIFIER.verify(expiresNow, output(validState()), false, false).valid())
+                .isTrue();
     }
 
     private static RedeemRequest.InstrumentationResult output(Map<String, Object> state) {

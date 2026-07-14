@@ -1,6 +1,6 @@
 package github.luckygc.cap;
 
-import github.luckygc.cap.internal.instrumentation.BuiltinInstrumentationTransformer;
+import github.luckygc.cap.internal.instrumentation.InstrumentationGenerator;
 import java.util.Objects;
 
 public final class InstrumentationOptions {
@@ -41,7 +41,8 @@ public final class InstrumentationOptions {
 
         private int level = 3;
         private boolean blockAutomatedBrowsers;
-        private InstrumentationTransformer transformer = BuiltinInstrumentationTransformer.INSTANCE;
+        private InstrumentationTransformer transformer =
+                InstrumentationGenerator.builtInTransformer();
 
         private Builder() {}
 
@@ -58,6 +59,12 @@ public final class InstrumentationOptions {
             return this;
         }
 
+        /**
+         * 设置可信的同步 transformer。
+         *
+         * <p>transformer 可见完整脚本和 nonce 相关内容，并在生成 challenge 的调用线程执行；本库不提供执行超时、 内存隔离或 JVM
+         * sandbox，仅校验异常、返回值和输出大小。
+         */
         public Builder transformer(InstrumentationTransformer transformer) {
             this.transformer = Objects.requireNonNull(transformer, "transformer");
             return this;

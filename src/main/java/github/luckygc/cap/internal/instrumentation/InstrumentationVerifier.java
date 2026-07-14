@@ -15,7 +15,6 @@ public final class InstrumentationVerifier {
 
     private static final int EXPECTED_VARIABLES = 4;
     private static final int MAX_STATE_ENTRIES = 16;
-    private static final int MAX_ID_LENGTH = 64;
     private static final int MAX_VARIABLE_LENGTH = 64;
 
     private final Clock clock;
@@ -43,12 +42,12 @@ public final class InstrumentationVerifier {
     /** 验证已确认存在的 wire payload，允许协议解析层保留缺失的 id/state。 */
     public VerificationResult verify(
             @Nullable GeneratedInstrumentation metadata,
-            @Nullable String id,
+            @Nullable Object id,
             @Nullable Map<String, @Nullable Object> actual) {
         if (metadata == null) {
             return failure("missing_meta");
         }
-        if (id == null || id.length() > MAX_ID_LENGTH || !id.equals(metadata.id())) {
+        if (!(id instanceof String suppliedId) || !suppliedId.equals(metadata.id())) {
             return failure("id_mismatch");
         }
         if (actual == null || actual.size() > MAX_STATE_ENTRIES) {
@@ -93,8 +92,7 @@ public final class InstrumentationVerifier {
 
     private static boolean validMetadata(
             String id, List<String> variables, List<Integer> expected) {
-        if (id.isEmpty()
-                || id.length() > MAX_ID_LENGTH
+        if (!id.matches("[0-9a-f]{32}")
                 || variables.size() != EXPECTED_VARIABLES
                 || expected.size() != EXPECTED_VARIABLES) {
             return false;

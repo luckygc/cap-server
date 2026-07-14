@@ -18,6 +18,7 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,27 @@ class InstrumentationGeneratorTest {
                 .contains("node:internal", "leakHashes", "leak2");
         assertThat(fixture.get("source").toString())
                 .contains("version=capjs-core 0.1.1", "commit=f9ffadb");
+    }
+
+    @Test
+    @DisplayName("Java 生成结果逐字段匹配真实上游 fixture")
+    void javaGenerationMatchesUpstreamFixture() throws IOException {
+        Map<String, Object> fixture = readFixture();
+        InstrumentationGenerator generator =
+                new InstrumentationGenerator(
+                        new UpstreamFixtureSecureRandom(), Clock.fixed(NOW, ZoneOffset.UTC));
+
+        InstrumentationGenerator.GeneratedInstrumentation actual =
+                generator.generate(InstrumentationOptions.builder().level(0).build());
+
+        assertThat(actual.id()).isEqualTo(fixture.get("id"));
+        assertThat(actual.expires()).isEqualTo(fixture.get("expires"));
+        assertThat(actual.vars()).isEqualTo(fixture.get("vars"));
+        assertThat(actual.expectedVals().stream().map(Long::valueOf).collect(Collectors.toList()))
+                .isEqualTo(fixture.get("expectedVals"));
+        assertThat(actual.blockAutomatedBrowsers())
+                .isEqualTo(fixture.get("blockAutomatedBrowsers"));
+        assertThat(inflate(actual.instrumentation())).isEqualTo(fixture.get("script"));
     }
 
     @Test
@@ -106,16 +128,45 @@ class InstrumentationGeneratorTest {
     @Test
     @DisplayName("内置 level 0 到 3 转换保留协议关键语法")
     void builtInTransformerPreservesGeneratedScript() throws IOException {
-        for (int level = 0; level <= 3; level++) {
-            InstrumentationOptions options = InstrumentationOptions.builder().level(level).build();
-            String script = inflate(generator(41).generate(options).instrumentation());
+        String raw = generatedScript(41, 0);
+        String compact = generatedScript(41, 1);
+        String stringTable = generatedScript(41, 2);
+        String compactStringTable = generatedScript(41, 3);
 
+        assertThat(raw).contains("\n").doesNotStartWith("var _T");
+        assertThat(compact).isEqualTo(raw.replaceAll("\\n\\s*", ""));
+        assertThat(stringTable).startsWith("var _T").contains("\n");
+        assertThat(compactStringTable).isEqualTo(stringTable.replaceAll("\\n\\s*", ""));
+        assertThat(List.of(raw, compact, stringTable, compactStringTable)).doesNotHaveDuplicates();
+        for (String script : List.of(raw, compact, stringTable, compactStringTable)) {
             assertThat(script)
                     .contains("postMessage", "cap:instr", "Date.now()", "/\\(native:/")
                     .contains("new Function", "CustomEvent");
-            if (level >= 2) {
-                assertThat(script).contains("var _T");
-            }
+        }
+        assertNodeSyntax(stringTable);
+        assertNodeSyntax(compactStringTable);
+    }
+
+    @Test
+    @DisplayName("字符串表保留对象键、括号键、direct eval 与嵌套转义引号语义")
+    void stringTablePreservesRepresentativeJavaScriptSemantics() throws IOException {
+        String sample =
+                "(()=>{\n"
+                        + "const nested={key:'value','bracket-key':'bracket'};"
+                        + "const source='({\\\"x\\\":\\\"a\\\\\\\"b\\\"})';"
+                        + "const parsed=eval(source);"
+                        + "return [nested.key,nested['bracket-key'],parsed.x];})()";
+        String expected = executeJavaScript(sample);
+
+        for (int level : List.of(2, 3)) {
+            String transformed =
+                    InstrumentationOptions.builder()
+                            .level(level)
+                            .build()
+                            .transformer()
+                            .transform(sample, level);
+            assertNodeSyntax(transformed);
+            assertThat(executeJavaScript(transformed)).isEqualTo(expected);
         }
     }
 
@@ -179,6 +230,48 @@ class InstrumentationGeneratorTest {
                 new DeterministicSecureRandom(seed), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
+    private static String generatedScript(long seed, int level) throws IOException {
+        return inflate(
+                generator(seed)
+                        .generate(InstrumentationOptions.builder().level(level).build())
+                        .instrumentation());
+    }
+
+    private static void assertNodeSyntax(String script) throws IOException {
+        Process process = new ProcessBuilder("node", "--check").start();
+        process.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
+        process.getOutputStream().close();
+        String error = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        try {
+            assertThat(process.waitFor()).as(error).isZero();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(exception);
+        }
+    }
+
+    private static String executeJavaScript(String script) throws IOException {
+        String encoded =
+                Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_8));
+        Process process =
+                new ProcessBuilder(
+                                "node",
+                                "-e",
+                                "const s=Buffer.from(process.argv[1],'base64').toString();"
+                                        + "process.stdout.write(JSON.stringify((0,eval)(s)))",
+                                encoded)
+                        .start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String error = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        try {
+            assertThat(process.waitFor()).as(error).isZero();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(exception);
+        }
+        return output;
+    }
+
     private static String inflate(String encoded) throws IOException {
         byte[] compressed = Base64.getDecoder().decode(encoded);
         try (InflaterInputStream input =
@@ -223,6 +316,37 @@ class InstrumentationGeneratorTest {
         @Override
         public double nextDouble() {
             return Integer.toUnsignedLong(nextInt(Integer.MAX_VALUE)) / (double) Integer.MAX_VALUE;
+        }
+    }
+
+    private static final class UpstreamFixtureSecureRandom extends SecureRandom {
+
+        private int byteIndex;
+        private int integerIndex;
+        private long mathState = 0x12345678L;
+
+        @Override
+        public void nextBytes(byte[] bytes) {
+            for (int index = 0; index < bytes.length; index++) {
+                bytes[index] = (byte) ((byteIndex++ * 29 + 7) & 0xff);
+            }
+        }
+
+        @Override
+        public int nextInt(int origin, int bound) {
+            int range = bound - origin;
+            return origin + Math.floorMod(integerIndex++ * 7_919 + 104_729, range);
+        }
+
+        @Override
+        public int nextInt(int bound) {
+            return nextInt(0, bound);
+        }
+
+        @Override
+        public double nextDouble() {
+            mathState = (mathState * 1_664_525 + 1_013_904_223) & 0xffff_ffffL;
+            return mathState / 4_294_967_296.0;
         }
     }
 }

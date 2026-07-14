@@ -78,6 +78,12 @@ public final class CapBuilder {
         return this;
     }
 
+    /**
+     * 配置 instrumentation；其中的自定义 transformer 必须是可信同步代码。
+     *
+     * <p>自定义 transformer 可见完整脚本及 nonce 相关内容，并在 challenge 调用线程执行；本库不提供超时、 内存隔离或 JVM
+     * sandbox，仅校验异常、返回值和输出大小。
+     */
     public CapBuilder instrumentation(InstrumentationOptions options) {
         this.instrumentation = Objects.requireNonNull(options, "options");
         return this;
