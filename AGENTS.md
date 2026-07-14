@@ -23,6 +23,7 @@ mise exec maven -- mvn compile
 mise exec maven -- mvn verify
 mise exec maven -- mvn test
 mise exec maven -- mvn -Dtest=CreateChallengeTest test
+mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
 ```
 
 - `compile`：编译主代码，并执行 Maven 生命周期中更早阶段的检查。
@@ -31,6 +32,9 @@ mise exec maven -- mvn -Dtest=CreateChallengeTest test
 - `mise exec maven -- mvn test` 必须实际执行测试，不允许出现 `Tests are skipped.`。
 - `mise exec maven -- mvn verify` 必须通过 Spotless、测试和打包。
 - 使用 `-Dtest=类名` 或 `-Dtest=类名#方法名` 运行聚焦测试。
+- 常规 `test` / `verify` 只要求 Java 17+ 和通过 `mise` 提供的 Maven，不依赖 PATH 中的 Node。
+- instrumentation 的 Node 语法与运行语义检查是显式 opt-in；使用上述 `cap.nodeChecks=true` 命令时，PATH 中需有 Node 24。
+- `tools/fixtures/` 下的 instrumentation fixture 重生成/复核脚本同样需要 PATH 中的 Node 24；项目未配置 `mise` Node 工具名。
 
 ## 代码约定
 

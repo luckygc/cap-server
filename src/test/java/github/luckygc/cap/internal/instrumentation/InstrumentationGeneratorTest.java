@@ -18,6 +18,8 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
@@ -143,8 +145,10 @@ class InstrumentationGeneratorTest {
                     .contains("postMessage", "cap:instr", "Date.now()", "/\\(native:/")
                     .contains("new Function", "CustomEvent");
         }
-        assertNodeSyntax(stringTable);
-        assertNodeSyntax(compactStringTable);
+        if (nodeChecksEnabled()) {
+            assertNodeSyntax(stringTable);
+            assertNodeSyntax(compactStringTable);
+        }
     }
 
     @Test
@@ -156,8 +160,6 @@ class InstrumentationGeneratorTest {
                         + "const source='({\\\"x\\\":\\\"a\\\\\\\"b\\\"})';"
                         + "const parsed=eval(source);"
                         + "return [nested.key,nested['bracket-key'],parsed.x];})()";
-        String expected = executeJavaScript(sample);
-
         for (int level : List.of(2, 3)) {
             String transformed =
                     InstrumentationOptions.builder()
@@ -165,8 +167,18 @@ class InstrumentationGeneratorTest {
                             .build()
                             .transformer()
                             .transform(sample, level);
-            assertNodeSyntax(transformed);
-            assertThat(executeJavaScript(transformed)).isEqualTo(expected);
+            Matcher table = Pattern.compile("^var (_T[a-z0-9]+)=\\[").matcher(transformed);
+            assertThat(table.find()).isTrue();
+            String tableName = table.group(1);
+            assertThat(transformed)
+                    .contains("[" + tableName + "[1]]:" + tableName + "[2]")
+                    .contains("nested[" + tableName + "[1]]")
+                    .contains("const source=" + tableName + "[3]", "eval(source)")
+                    .contains("'({\\\"x\\\":\\\"a\\\\\\\"b\\\"})'");
+            if (nodeChecksEnabled()) {
+                assertNodeSyntax(transformed);
+                assertThat(executeJavaScript(transformed)).isEqualTo(executeJavaScript(sample));
+            }
         }
     }
 
@@ -248,6 +260,10 @@ class InstrumentationGeneratorTest {
             Thread.currentThread().interrupt();
             throw new AssertionError(exception);
         }
+    }
+
+    private static boolean nodeChecksEnabled() {
+        return Boolean.getBoolean("cap.nodeChecks");
     }
 
     private static String executeJavaScript(String script) throws IOException {
