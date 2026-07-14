@@ -307,15 +307,23 @@ class CapApiTest {
     }
 
     @Test
-    @DisplayName("协议操作在本任务中明确不受支持")
-    void protocolMethodsAreExplicitlyUnsupported() {
+    @DisplayName("协议门面默认可用且无效兑换安全失败")
+    void protocolFacadeIsUsable() {
         Cap cap = Cap.builder("0123456789abcdef").build();
         RedeemRequest request = new RedeemRequest("token", List.of(), null, false, false);
 
-        assertProtocolNotImplemented(cap::createChallenge);
-        assertProtocolNotImplemented(() -> cap.createChallenge(ChallengeOptions.defaults()));
-        assertProtocolNotImplemented(() -> cap.redeem(request));
-        assertProtocolNotImplemented(() -> cap.redeem(request, RedeemOptions.defaults()));
+        ChallengeResponse.Format1 challenge = (ChallengeResponse.Format1) cap.createChallenge();
+        assertThat(challenge.challenge()).isEqualTo(new ChallengeResponse.Challenge(50, 32, 4));
+        assertThat(challenge.instrumentation()).isNull();
+        assertThat(challenge.expires())
+                .isBetween(
+                        System.currentTimeMillis() + 590_000, System.currentTimeMillis() + 610_000);
+        assertThat(cap.createChallenge(ChallengeOptions.defaults()))
+                .isInstanceOf(ChallengeResponse.Format1.class);
+        assertThat(cap.redeem(request))
+                .isEqualTo(new RedeemResult.Failure(false, "invalid_token", false, null));
+        assertThat(cap.redeem(request, RedeemOptions.defaults()))
+                .isEqualTo(new RedeemResult.Failure(false, "invalid_token", false, null));
     }
 
     @Test
@@ -329,12 +337,6 @@ class CapApiTest {
         assertThat(consumer.consume("signature", Duration.ofSeconds(1))).isTrue();
         assertThat(signer.sign("scope", Instant.ofEpochMilli(2), Instant.ofEpochMilli(1)))
                 .isEqualTo("scope21");
-    }
-
-    private static void assertProtocolNotImplemented(Runnable operation) {
-        assertThatThrownBy(operation::run)
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessage("protocol not implemented");
     }
 
     private static RswKeyPair validRswKeyPair() {

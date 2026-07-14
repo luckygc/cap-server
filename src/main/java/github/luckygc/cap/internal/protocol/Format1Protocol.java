@@ -2,8 +2,13 @@ package github.luckygc.cap.internal.protocol;
 
 import github.luckygc.cap.ChallengeOptions;
 import github.luckygc.cap.ChallengeResponse;
+import github.luckygc.cap.InstrumentationOptions;
 import github.luckygc.cap.RedeemRequest;
+import github.luckygc.cap.internal.crypto.EncryptedMetadataCodec;
 import github.luckygc.cap.internal.crypto.JwtCodec;
+import github.luckygc.cap.internal.instrumentation.InstrumentationGenerator;
+import github.luckygc.cap.internal.instrumentation.InstrumentationGenerator.GeneratedInstrumentation;
+import github.luckygc.cap.internal.instrumentation.InstrumentationVerifier;
 import github.luckygc.cap.utils.RandomUtil;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +41,10 @@ public final class Format1Protocol {
     private final int difficulty;
     private final Clock clock;
     private final SecureRandom random;
+    private final @Nullable InstrumentationOptions instrumentationOptions;
+    private final EncryptedMetadataCodec encryptedMetadata;
+    private final InstrumentationGenerator instrumentationGenerator;
+    private final InstrumentationVerifier instrumentationVerifier;
 
     /** 使用 capjs-core 默认 Format 1 参数。 */
     public Format1Protocol(String secret) {
@@ -44,11 +53,39 @@ public final class Format1Protocol {
 
     /** 使用调用方配置的 Format 1 参数。 */
     public Format1Protocol(String secret, int count, int size, int difficulty) {
-        this(secret, count, size, difficulty, Clock.systemUTC(), new SecureRandom());
+        this(secret, count, size, difficulty, null);
+    }
+
+    /** 使用调用方配置的可选 instrumentation。 */
+    public Format1Protocol(
+            String secret,
+            int count,
+            int size,
+            int difficulty,
+            @Nullable InstrumentationOptions instrumentationOptions) {
+        this(
+                secret,
+                count,
+                size,
+                difficulty,
+                instrumentationOptions,
+                Clock.systemUTC(),
+                new SecureRandom());
     }
 
     Format1Protocol(
             String secret, int count, int size, int difficulty, Clock clock, SecureRandom random) {
+        this(secret, count, size, difficulty, null, clock, random);
+    }
+
+    Format1Protocol(
+            String secret,
+            int count,
+            int size,
+            int difficulty,
+            @Nullable InstrumentationOptions instrumentationOptions,
+            Clock clock,
+            SecureRandom random) {
         validateParameters(count, size, difficulty);
         jwt = new JwtCodec(secret);
         this.count = count;
@@ -56,6 +93,10 @@ public final class Format1Protocol {
         this.difficulty = difficulty;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.random = Objects.requireNonNull(random, "random");
+        this.instrumentationOptions = instrumentationOptions;
+        encryptedMetadata = new EncryptedMetadataCodec(secret, random);
+        instrumentationGenerator = new InstrumentationGenerator(random, clock);
+        instrumentationVerifier = new InstrumentationVerifier(clock);
     }
 
     /** 生成带 HS256 状态 token 的 Format 1 challenge。 */
@@ -80,11 +121,25 @@ public final class Format1Protocol {
             payload.put("x", options.extra());
         }
 
+        @Nullable String instrumentation = null;
+        if (instrumentationOptions != null) {
+            GeneratedInstrumentation generated =
+                    instrumentationGenerator.generate(instrumentationOptions, options.ttl());
+            Map<String, @Nullable Object> metadata = new LinkedHashMap<>();
+            metadata.put("id", generated.id());
+            metadata.put("expectedVals", generated.expectedVals());
+            metadata.put("vars", generated.vars());
+            metadata.put("blockAutomatedBrowsers", generated.blockAutomatedBrowsers());
+            metadata.put("expires", expires);
+            payload.put("ei", encryptedMetadata.encryptFormat1(metadata));
+            instrumentation = generated.instrumentation();
+        }
+
         return new ChallengeResponse.Format1(
                 new ChallengeResponse.Challenge(count, size, difficulty),
                 jwt.sign(payload),
                 expires,
-                null);
+                instrumentation);
     }
 
     /** 验证一个已构造的公开兑换请求。 */
@@ -93,7 +148,14 @@ public final class Format1Protocol {
         if (request == null) {
             return failure("invalid_body");
         }
-        return validateComponents(true, request.token(), request.solutions(), expectedScope);
+        return validateComponents(
+                true,
+                request.token(),
+                request.solutions(),
+                expectedScope,
+                request.instr(),
+                request.instrBlocked(),
+                request.instrTimeout());
     }
 
     ValidationResult validateComponents(
@@ -101,6 +163,18 @@ public final class Format1Protocol {
             @Nullable Object tokenValue,
             @Nullable Object solutionsValue,
             @Nullable String expectedScope) {
+        return validateComponents(
+                validBody, tokenValue, solutionsValue, expectedScope, null, false, false);
+    }
+
+    private ValidationResult validateComponents(
+            boolean validBody,
+            @Nullable Object tokenValue,
+            @Nullable Object solutionsValue,
+            @Nullable String expectedScope,
+            RedeemRequest.@Nullable InstrumentationResult instrumentation,
+            boolean instrumentationBlocked,
+            boolean instrumentationTimeout) {
         if (!validBody) {
             return failure("invalid_body");
         }
@@ -162,6 +236,37 @@ public final class Format1Protocol {
             String target = RandomUtil.prngFromHash(targetState, challengeDifficulty);
             if (!sha256Hex(salt + solutionStrings[index]).startsWith(target)) {
                 return failure("invalid_solution");
+            }
+        }
+
+        if (payload.get("ei") != null) {
+            if (!(payload.get("ei") instanceof String encrypted)) {
+                return instrumentationFailure("instr_corrupted");
+            }
+            Map<String, @Nullable Object> metadata =
+                    encryptedMetadata.decryptFormat1(encrypted).orElse(null);
+            GeneratedInstrumentation generated = instrumentationMetadata(metadata);
+            if (generated == null) {
+                return instrumentationFailure("instr_corrupted");
+            }
+            if (generated.expires() != 0 && clock.millis() > generated.expires()) {
+                return instrumentationFailure("instr_expired");
+            }
+            if (instrumentationBlocked) {
+                if (generated.blockAutomatedBrowsers()) {
+                    return instrumentationFailure("instr_automated_browser");
+                }
+            } else if (instrumentationTimeout) {
+                return instrumentationFailure("instr_timeout");
+            } else if (instrumentation == null) {
+                return instrumentationFailure("instr_missing");
+            } else {
+                InstrumentationVerifier.VerificationResult result =
+                        instrumentationVerifier.verify(generated, instrumentation);
+                if (!result.valid()) {
+                    return instrumentationFailure(
+                            result.reason() == null ? "instr_failed" : result.reason());
+                }
             }
         }
 
@@ -242,6 +347,41 @@ public final class Format1Protocol {
 
     private static ProtocolFailure failure(String reason) {
         return new ProtocolFailure(reason, false, null);
+    }
+
+    private static ProtocolFailure instrumentationFailure(String reason) {
+        return new ProtocolFailure(reason, true, null);
+    }
+
+    private static @Nullable GeneratedInstrumentation instrumentationMetadata(
+            @Nullable Map<String, @Nullable Object> metadata) {
+        if (metadata == null
+                || !(metadata.get("id") instanceof String id)
+                || !(metadata.get("expectedVals") instanceof List<?> expectedValues)
+                || !(metadata.get("vars") instanceof List<?> variables)
+                || !(metadata.get("blockAutomatedBrowsers") instanceof Boolean blocked)) {
+            return null;
+        }
+        @Nullable Long expires = protocolInteger(metadata.get("expires"));
+        if (expires == null) {
+            return null;
+        }
+        List<Integer> expected = new java.util.ArrayList<>(expectedValues.size());
+        for (Object value : expectedValues) {
+            @Nullable Long integer = protocolInteger(value);
+            if (integer == null || integer < Integer.MIN_VALUE || integer > Integer.MAX_VALUE) {
+                return null;
+            }
+            expected.add(integer.intValue());
+        }
+        List<String> vars = new java.util.ArrayList<>(variables.size());
+        for (Object value : variables) {
+            if (!(value instanceof String variable)) {
+                return null;
+            }
+            vars.add(variable);
+        }
+        return new GeneratedInstrumentation(id, expires, expected, vars, blocked, "metadata-only");
     }
 
     /** 验证结果仅供后续统一 replay 与 token 签发流程使用。 */

@@ -80,6 +80,7 @@ public final class CapEvents {
 
     /** 可记录的固定警告类型，避免自由文本意外携带敏感数据。 */
     public enum Warning {
+        CHALLENGE_GENERATION_FAILURE("challenge generation failed"),
         NONCE_CONSUMER_FAILURE("nonce consumer failed"),
         RSW_FAILURE("RSW operation failed"),
         INSTRUMENTATION_FAILURE("instrumentation generation failed"),
