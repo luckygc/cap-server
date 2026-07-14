@@ -1,0 +1,40 @@
+{
+  "source": {
+    "package": "capjs-core",
+    "version": "0.1.1",
+    "generator": "core/src/crypto.js jwtSign+sha256Hex and core/src/prng.js",
+    "payloadNote": "fixed payload; solutions brute-forced with upstream primitives"
+  },
+  "secret": "0123456789abcdef0123456789abcdef",
+  "payload": {
+    "n": "000102030405060708090a0b0c0d0e0f101112131415161718",
+    "c": 2,
+    "s": 8,
+    "d": 2,
+    "exp": 4102444800000,
+    "iat": 1735689600000
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoiMDAwMTAyMDMwNDA1MDYwNzA4MDkwYTBiMGMwZDBlMGYxMDExMTIxMzE0MTUxNjE3MTgiLCJjIjoyLCJzIjo4LCJkIjoyLCJleHAiOjQxMDI0NDQ4MDAwMDAsImlhdCI6MTczNTY4OTYwMDAwMH0.dQEdmfOdUOuFAbS91AuGIdfCePe42ExCiR5RzI5iEOw",
+  "signatureHex": "75011d99f39d50eb8501b4bdd40b8621d7c278f7b8d84c42891e51cc8e6210ec",
+  "entries": [
+    {
+      "index": 1,
+      "saltSeed": 1566667176,
+      "targetSeed": 3429245988,
+      "salt": "19dd4842",
+      "target": "14",
+      "solution": 301,
+      "hash": "1400af3996e10e61f2526ee7dbf36e54ff4b847983059af7578e6b212457bedf"
+    },
+    {
+      "index": 2,
+      "saltSeed": 1617000033,
+      "targetSeed": 3194800607,
+      "salt": "9b0357d7",
+      "target": "cd",
+      "solution": 445,
+      "hash": "cdc5ea6f0844d198bac1198807c94204b394fefb41a9a5390e2468a5fb721843"
+    }
+  ],
+  "solutions": [301, 445]
+}

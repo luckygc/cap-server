@@ -17,81 +17,57 @@
 
 package github.luckygc.cap.utils;
 
-import org.apache.commons.lang3.StringUtils;
+import java.util.Objects;
 
-/** <a href="https://capjs.js.org">capjs</a> 服务端算法实现 与JavaScript版本完全一致的PRNG实现 */
+/** 与 capjs-core 线格式一致的 FNV-1a 与 xorshift32 工具。 */
 public final class RandomUtil {
+
+    private static final int FNV_OFFSET_BASIS = 0x811c9dc5;
 
     private RandomUtil() {}
 
-    /**
-     * 从字符串种子生成指定长度的确定性十六进制字符串
-     *
-     * @param seed 初始种子值
-     * @param length 输出十六进制字符串长度
-     * @return 从种子生成的确定性十六进制字符串
-     */
+    /** 从字符串种子生成指定长度的确定性十六进制字符串。 */
     public static String prng(String seed, int length) {
-        if (StringUtils.isBlank(seed) || length <= 0) {
+        if (seed == null || seed.isBlank() || length <= 0) {
             throw new IllegalArgumentException("种子不能为空且长度必须大于0");
         }
+        return prngFromHash(fnv1a(seed), length);
+    }
 
-        int state = fnv1a(seed);
-        StringBuilder result = new StringBuilder(length);
+    /** 计算字符串的 32 位 FNV-1a 状态。 */
+    public static int fnv1a(String value) {
+        return fnv1aResume(FNV_OFFSET_BASIS, value);
+    }
 
-        while (result.length() < length) {
-            int rnd = next(state);
-            state = rnd;
-            // 使用与JavaScript完全一致的十六进制转换
-            result.append(toHexString(rnd));
+    /** 从已有 FNV-1a 状态继续处理后缀，避免重新扫描公共前缀。 */
+    public static int fnv1aResume(int state, String suffix) {
+        Objects.requireNonNull(suffix, "suffix");
+        int hash = state;
+        for (int index = 0; index < suffix.length(); index++) {
+            hash ^= suffix.charAt(index);
+            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
         }
+        return hash;
+    }
 
+    /** 从已有 32 位状态生成指定长度的十六进制字符串。 */
+    public static String prngFromHash(int initialHash, int length) {
+        if (length <= 0) {
+            throw new IllegalArgumentException("长度必须大于0");
+        }
+        int state = initialHash;
+        StringBuilder result = new StringBuilder(length + 7);
+        while (result.length() < length) {
+            state = next(state);
+            result.append("%08x".formatted(state));
+        }
         return result.substring(0, length);
     }
 
-    /**
-     * FNV-1a哈希算法 - 与JavaScript版本完全一致 利用Java int的32位环绕特性，等价于JavaScript的ToInt32
-     *
-     * @param str 输入字符串
-     * @return 32位哈希值
-     */
-    private static int fnv1a(String str) {
-        int hash = 0x811c9dc5; // 2166136261
-        for (int i = 0; i < str.length(); i++) {
-            hash ^= str.charAt(i);
-            // 乘以FNV倍数16777619，等价于移位相加
-            // Java int的32位环绕特性确保与JavaScript完全一致
-            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        }
-        return hash; // 32位环绕自动处理，无需额外操作
-    }
-
-    /**
-     * Xorshift32算法 - 与JavaScript版本完全一致
-     *
-     * @param state 当前状态
-     * @return 下一个32位随机数
-     */
     private static int next(int state) {
         state ^= state << 13;
         state ^= state >>> 17;
         state ^= state << 5;
         return state;
-    }
-
-    /**
-     * 与JavaScript完全一致的十六进制转换 模拟JavaScript的 toString(16).padStart(8, "0")
-     *
-     * @param value 32位整数
-     * @return 8位十六进制字符串
-     */
-    private static String toHexString(int value) {
-        // 将int转换为无符号32位值，然后转十六进制
-        String hex = Integer.toHexString(value);
-        // 补齐8位，与JavaScript的padStart(8, "0")一致
-        if (hex.length() < 8) {
-            return StringUtils.leftPad(hex, 8, '0');
-        }
-        return hex;
     }
 }
