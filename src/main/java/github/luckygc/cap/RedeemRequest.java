@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 public record RedeemRequest(
         String token,
-        List<Object> solutions,
+        List<@Nullable Object> solutions,
         @Nullable InstrumentationResult instr,
         boolean instrBlocked,
         boolean instrTimeout) {
@@ -17,7 +17,8 @@ public record RedeemRequest(
         solutions = ChallengeOptions.immutableList(solutions);
     }
 
-    public record InstrumentationResult(String i, Map<String, Object> state, @Nullable Long ts) {
+    public record InstrumentationResult(
+            String i, Map<String, @Nullable Object> state, @Nullable Long ts) {
 
         public InstrumentationResult {
             Objects.requireNonNull(i, "i");

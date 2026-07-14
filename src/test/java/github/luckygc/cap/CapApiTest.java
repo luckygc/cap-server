@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.AnnotatedParameterizedType;
+import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.RecordComponent;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -13,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +43,19 @@ class CapApiTest {
     @DisplayName("包使用非空默认契约")
     void packageIsNullMarked() {
         assertThat(Cap.class.getPackage().isAnnotationPresent(NullMarked.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("JSON 容器声明可空元素契约")
+    void jsonContainersDeclareNullableElementTypes() throws NoSuchMethodException {
+        AnnotatedType extraType =
+                ChallengeOptions.class.getDeclaredMethod("extra").getAnnotatedReturnType();
+        assertJsonValueTypeIsNullable(extraType, 1);
+        assertJsonValueTypeIsNullable(
+                recordComponent(ChallengeResponse.ProtocolChallenge.class, "payload"), 1);
+        assertJsonValueTypeIsNullable(recordComponent(RedeemRequest.class, "solutions"), 0);
+        assertJsonValueTypeIsNullable(
+                recordComponent(RedeemRequest.InstrumentationResult.class, "state"), 1);
     }
 
     @Test
@@ -318,5 +335,21 @@ class CapApiTest {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> ChallengeOptions.builder().extra(Map.of("invalid", value)))
                 .as("invalid JSON leaf: %s", value);
+    }
+
+    private static AnnotatedType recordComponent(Class<?> recordType, String name) {
+        for (RecordComponent component : recordType.getRecordComponents()) {
+            if (component.getName().equals(name)) {
+                return component.getAnnotatedType();
+            }
+        }
+        throw new AssertionError("record component not found: " + name);
+    }
+
+    private static void assertJsonValueTypeIsNullable(AnnotatedType containerType, int index) {
+        AnnotatedType valueType =
+                ((AnnotatedParameterizedType) containerType)
+                        .getAnnotatedActualTypeArguments()[index];
+        assertThat(valueType.isAnnotationPresent(Nullable.class)).isTrue();
     }
 }

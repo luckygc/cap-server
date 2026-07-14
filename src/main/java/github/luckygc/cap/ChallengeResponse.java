@@ -36,7 +36,7 @@ public sealed interface ChallengeResponse
 
     record Challenge(int c, int s, int d) {}
 
-    record ProtocolChallenge(String protocol, Map<String, Object> payload) {
+    record ProtocolChallenge(String protocol, Map<String, @Nullable Object> payload) {
 
         public ProtocolChallenge {
             Objects.requireNonNull(protocol, "protocol");

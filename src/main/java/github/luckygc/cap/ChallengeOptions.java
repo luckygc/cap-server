@@ -20,7 +20,7 @@ public final class ChallengeOptions {
     private static final ChallengeOptions DEFAULTS = new Builder().build();
 
     private final @Nullable String scope;
-    private final Map<String, Object> extra;
+    private final Map<String, @Nullable Object> extra;
     private final Duration ttl;
 
     private ChallengeOptions(Builder builder) {
@@ -41,7 +41,7 @@ public final class ChallengeOptions {
         return scope;
     }
 
-    public Map<String, Object> extra() {
+    public Map<String, @Nullable Object> extra() {
         return extra;
     }
 
@@ -57,16 +57,17 @@ public final class ChallengeOptions {
         return duration;
     }
 
-    static Map<String, Object> immutableMap(Map<?, ?> source) {
+    static Map<String, @Nullable Object> immutableMap(Map<?, @Nullable ?> source) {
         return immutableMap(source, newIdentitySet());
     }
 
-    private static Map<String, Object> immutableMap(Map<?, ?> source, Set<Object> visiting) {
+    private static Map<String, @Nullable Object> immutableMap(
+            Map<?, @Nullable ?> source, Set<Object> visiting) {
         Objects.requireNonNull(source, "map");
         enterContainer(source, visiting);
-        Map<String, Object> copy = new LinkedHashMap<>();
+        Map<String, @Nullable Object> copy = new LinkedHashMap<>();
         try {
-            for (Map.Entry<?, ?> entry : source.entrySet()) {
+            for (Map.Entry<?, @Nullable ?> entry : source.entrySet()) {
                 Object key = Objects.requireNonNull(entry.getKey(), "map key");
                 if (!(key instanceof String stringKey)) {
                     throw new IllegalArgumentException("map keys must be strings");
@@ -79,16 +80,17 @@ public final class ChallengeOptions {
         return Collections.unmodifiableMap(copy);
     }
 
-    static List<Object> immutableList(List<?> source) {
+    static List<@Nullable Object> immutableList(List<@Nullable ?> source) {
         return immutableList(source, newIdentitySet());
     }
 
-    private static List<Object> immutableList(List<?> source, Set<Object> visiting) {
+    private static List<@Nullable Object> immutableList(
+            List<@Nullable ?> source, Set<Object> visiting) {
         Objects.requireNonNull(source, "list");
         enterContainer(source, visiting);
-        List<Object> copy = new ArrayList<>(source.size());
+        List<@Nullable Object> copy = new ArrayList<>(source.size());
         try {
-            for (Object value : source) {
+            for (@Nullable Object value : source) {
                 copy.add(immutableValue(value, visiting));
             }
         } finally {
@@ -101,10 +103,10 @@ public final class ChallengeOptions {
         if (value == null) {
             return null;
         }
-        if (value instanceof Map<?, ?> map) {
+        if (value instanceof Map<?, @Nullable ?> map) {
             return immutableMap(map, visiting);
         }
-        if (value instanceof List<?> list) {
+        if (value instanceof List<@Nullable ?> list) {
             return immutableList(list, visiting);
         }
         if (value instanceof String
@@ -145,7 +147,7 @@ public final class ChallengeOptions {
     public static final class Builder {
 
         private @Nullable String scope;
-        private Map<String, ?> extra = Map.of();
+        private Map<String, @Nullable ?> extra = Map.of();
         private Duration ttl = DEFAULT_TTL;
 
         private Builder() {}
