@@ -2,7 +2,7 @@
 
 ## 目标
 
-在仓库根目录创建一份简洁、中文、仓库专用的 `AGENTS.md`，让自动化编码代理能够快速理解项目约束，并在修改代码时使用正确的构建、检查和测试命令。
+在仓库根目录创建一份简洁、中文、仓库专用的 `AGENTS.md`，让自动化编码代理能够快速理解项目约束，并在修改代码时通过 `mise` 使用正确的构建、检查和测试命令。
 
 ## 作用域
 
@@ -22,10 +22,10 @@
 
 ## 命令语义
 
-- `./mvnw compile` 用于编译主代码。
-- `./mvnw verify` 会触发绑定在 `validate` 阶段的 Checkstyle。
-- 由于 `maven-surefire-plugin` 配置了 `<skip>true</skip>`，文档不得声称普通 `verify` 已运行测试。
-- 显式测试命令使用 `./mvnw -DskipTests=false test`；单个测试可使用 `-Dtest=类名` 缩小范围。
+- `mise exec maven -- mvn compile` 用于编译主代码。
+- `mise exec maven -- mvn verify` 会触发绑定在 `validate` 阶段的 Checkstyle。
+- 由于 `maven-surefire-plugin` 写死了 `<skip>true</skip>`，文档不得声称普通 `verify` 或 `test` 已运行测试。
+- `-DskipTests=false` 等命令行参数不能覆盖该固定配置；需要实际运行测试时，先将 `skip` 改为 `false`，再使用 `mise exec maven -- mvn test`，并按任务范围决定是否保留该配置改动。
 
 ## 边界与维护原则
 
