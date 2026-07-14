@@ -14,6 +14,7 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.core.ObjectReadContext;
 import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.StreamReadConstraints;
 import tools.jackson.core.json.JsonFactory;
 
 /** 对协议 JSON 实施类型与资源限制的流式编解码器。 */
@@ -23,7 +24,19 @@ public final class ProtocolJsonCodec {
     private static final int MAX_DEPTH = 32;
     private static final int MAX_NODES = 10_000;
     private static final int MAX_STRING_LENGTH = 16_384;
-    private static final JsonFactory JSON_FACTORY = new JsonFactory();
+    // 数字 token 不另设低于整个协议输入的限制；实际可用长度仍受 JSON 语法和总字节限制。
+    private static final int MAX_NUMBER_LENGTH = MAX_INPUT_BYTES;
+    private static final JsonFactory JSON_FACTORY =
+            JsonFactory.builder()
+                    .streamReadConstraints(
+                            StreamReadConstraints.builder()
+                                    .maxDocumentLength(MAX_INPUT_BYTES)
+                                    .maxNestingDepth(MAX_DEPTH)
+                                    .maxNumberLength(MAX_NUMBER_LENGTH)
+                                    .maxStringLength(MAX_STRING_LENGTH)
+                                    .maxNameLength(MAX_STRING_LENGTH)
+                                    .build())
+                    .build();
 
     /** 将 JSON 对象编码为 UTF-8 字节。 */
     public byte[] writeObject(Map<String, @Nullable Object> value) {
@@ -169,11 +182,7 @@ public final class ProtocolJsonCodec {
             return integer;
         }
         if (token == JsonToken.VALUE_NUMBER_FLOAT) {
-            BigDecimal decimal = parser.getDecimalValue();
-            if (!Double.isFinite(decimal.doubleValue())) {
-                throw new IllegalArgumentException("浮点数必须有限");
-            }
-            return decimal;
+            return parser.getDecimalValue();
         }
         if (token == JsonToken.VALUE_TRUE) {
             return true;

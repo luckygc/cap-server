@@ -55,6 +55,21 @@ class EncryptedMetadataCodecTest {
 
         assertThat(codec.decryptFormat1("not+base64")).isEmpty();
         assertThat(codec.decryptFormat1(CryptoSupport.encodeBase64Url(new byte[27]))).isEmpty();
+        assertThat(codec.decryptFormat1(CryptoSupport.encodeBase64Url(new byte[28]))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("拒绝非规范 Base64URL 密文")
+    void rejectsNonCanonicalBase64Url() {
+        EncryptedMetadataCodec codec = codec(SECRET);
+        String canonical = CryptoSupport.encodeBase64Url(new byte[28]);
+        char last = canonical.charAt(canonical.length() - 1);
+        char nonCanonicalLast = last == 'A' ? 'B' : 'A';
+
+        assertThat(
+                        codec.decryptFormat1(
+                                canonical.substring(0, canonical.length() - 1) + nonCanonicalLast))
+                .isEmpty();
     }
 
     private static EncryptedMetadataCodec codec(String secret) {

@@ -44,6 +44,37 @@ class JwtCodecTest {
     }
 
     @Test
+    @DisplayName("拒绝错误 header 类型与重复字段")
+    void rejectsWrongHeaderTypesAndDuplicateFields() {
+        assertThat(jwt.verify(signWithHeader("{\"alg\":123,\"typ\":\"JWT\"}"))).isEmpty();
+        assertThat(
+                        jwt.verify(
+                                signWithHeader(
+                                        "{\"alg\":\"HS256\",\"alg\":\"HS256\",\"typ\":\"JWT\"}")))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("拒绝非 32 字节签名")
+    void rejectsWrongSignatureLengths() {
+        String token = jwt.sign(Map.of("exp", 123L));
+        int lastDot = token.lastIndexOf('.');
+        String prefix = token.substring(0, lastDot + 1);
+
+        assertThat(jwt.verify(prefix + base64Url(new byte[31]))).isEmpty();
+        assertThat(jwt.verify(prefix + base64Url(new byte[33]))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("拒绝任何非 ASCII JWT 输入")
+    void rejectsNonAsciiInput() {
+        String token = jwt.sign(Map.of("exp", 123L));
+
+        assertThat(jwt.verify(token.substring(0, token.length() - 1) + "é")).isEmpty();
+        assertThat(jwt.verify("é".repeat(40_000))).isEmpty();
+    }
+
+    @Test
     @DisplayName("拒绝错误段数与超过 64 KiB 的 token")
     void rejectsInvalidStructureAndSize() {
         assertThat(jwt.verify("a.b")).isEmpty();
@@ -52,8 +83,19 @@ class JwtCodecTest {
     }
 
     private static String base64Url(String value) {
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+        return base64Url(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String base64Url(byte[] value) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
+    }
+
+    private static String signWithHeader(String header) {
+        String signingInput = base64Url(header) + "." + base64Url("{\"exp\":123}");
+        byte[] signature =
+                CryptoSupport.hmacSha256(
+                        SECRET.getBytes(StandardCharsets.UTF_8),
+                        signingInput.getBytes(StandardCharsets.US_ASCII));
+        return signingInput + "." + base64Url(signature);
     }
 }

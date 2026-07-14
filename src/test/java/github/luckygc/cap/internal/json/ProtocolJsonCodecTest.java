@@ -48,6 +48,24 @@ class ProtocolJsonCodecTest {
     }
 
     @Test
+    @DisplayName("1001 位大整数可对称往返")
+    void roundTripsLargeInteger() {
+        BigInteger largeInteger = new BigInteger("9".repeat(1_001));
+
+        assertThat(codec.readObject(codec.writeObject(Map.of("integer", largeInteger))))
+                .containsEntry("integer", largeInteger);
+    }
+
+    @Test
+    @DisplayName("有限大十进制不经二进制浮点范围裁剪")
+    void roundTripsLargeDecimal() {
+        BigDecimal largeDecimal = new BigDecimal("1E+10000");
+
+        assertThat(codec.readObject(codec.writeObject(Map.of("decimal", largeDecimal))))
+                .containsEntry("decimal", largeDecimal);
+    }
+
+    @Test
     @DisplayName("拒绝非有限浮点数")
     void rejectsNonFiniteNumbers() {
         assertThatIllegalArgumentException()
@@ -57,30 +75,44 @@ class ProtocolJsonCodecTest {
     }
 
     @Test
-    @DisplayName("拒绝超过 32 层的容器")
-    void rejectsExcessiveDepth() {
-        Object value = "leaf";
-        for (int index = 0; index < 33; index++) {
-            value = List.of(value);
-        }
-        Object deeplyNested = value;
+    @DisplayName("容器深度边界在 32 层读写一致")
+    void enforcesDepthBoundarySymmetrically() {
+        Object accepted = nestedLists(31);
+        Object rejected = nestedLists(32);
 
+        assertThat(codec.readObject(codec.writeObject(Map.of("x", accepted)))).containsKey("x");
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> codec.writeObject(Map.of("x", deeplyNested)));
+                .isThrownBy(() -> codec.writeObject(Map.of("x", rejected)));
+        assertThat(codec.readObject(nestedJson(31))).containsKey("x");
+        assertThatIllegalArgumentException().isThrownBy(() -> codec.readObject(nestedJson(32)));
     }
 
     @Test
-    @DisplayName("拒绝超过集合节点与字符串限制的值")
-    void rejectsExcessiveNodesAndStrings() {
-        List<Object> tooManyNodes = new ArrayList<>();
-        for (int index = 0; index < 10_001; index++) {
-            tooManyNodes.add(index);
-        }
+    @DisplayName("节点边界在 10000 个读写一致")
+    void enforcesNodeBoundarySymmetrically() {
+        List<Object> accepted = repeatedValues(9_998);
+        List<Object> rejected = repeatedValues(9_999);
 
+        assertThat(codec.readObject(codec.writeObject(Map.of("x", accepted)))).containsKey("x");
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> codec.writeObject(Map.of("x", tooManyNodes)));
+                .isThrownBy(() -> codec.writeObject(Map.of("x", rejected)));
+        assertThat(codec.readObject(arrayJson(9_998))).containsKey("x");
+        assertThatIllegalArgumentException().isThrownBy(() -> codec.readObject(arrayJson(9_999)));
+    }
+
+    @Test
+    @DisplayName("字符串边界在 16384 字符读写一致")
+    void enforcesStringBoundarySymmetrically() {
+        String accepted = "a".repeat(16_384);
+        String rejected = "a".repeat(16_385);
+
+        assertThat(codec.readObject(codec.writeObject(Map.of("x", accepted))))
+                .containsEntry("x", accepted);
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> codec.writeObject(Map.of("x", "a".repeat(16_385))));
+                .isThrownBy(() -> codec.writeObject(Map.of("x", rejected)));
+        assertThat(codec.readObject(jsonString(accepted))).containsEntry("x", accepted);
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> codec.readObject(jsonString(rejected)));
     }
 
     @Test
@@ -90,5 +122,47 @@ class ProtocolJsonCodecTest {
                 ("{\"x\":\"" + "a".repeat(65_536) + "\"}").getBytes(StandardCharsets.UTF_8);
 
         assertThatIllegalArgumentException().isThrownBy(() -> codec.readObject(oversized));
+    }
+
+    @Test
+    @DisplayName("拒绝重复对象键与尾随 JSON token")
+    void rejectsDuplicateKeysAndTrailingTokens() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () ->
+                                codec.readObject(
+                                        "{\"x\":1,\"x\":2}".getBytes(StandardCharsets.UTF_8)));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> codec.readObject("{} {}".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private static Object nestedLists(int count) {
+        Object value = "leaf";
+        for (int index = 0; index < count; index++) {
+            value = List.of(value);
+        }
+        return value;
+    }
+
+    private static byte[] nestedJson(int listCount) {
+        return ("{\"x\":" + "[".repeat(listCount) + "0" + "]".repeat(listCount) + "}")
+                .getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static List<Object> repeatedValues(int count) {
+        List<Object> values = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            values.add(0);
+        }
+        return values;
+    }
+
+    private static byte[] arrayJson(int elementCount) {
+        return ("{\"x\":[" + "0,".repeat(elementCount - 1) + "0]}")
+                .getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] jsonString(String value) {
+        return ("{\"x\":\"" + value + "\"}").getBytes(StandardCharsets.UTF_8);
     }
 }
