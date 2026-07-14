@@ -86,6 +86,7 @@ class EncryptedMetadataCodecTest {
 
         assertVector(vectors, "format1", false);
         assertVector(vectors, "format2", true);
+        assertVector(vectors, "minimalFormat1", false);
     }
 
     private static void assertVector(

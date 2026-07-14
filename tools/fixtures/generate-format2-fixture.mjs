@@ -158,6 +158,30 @@ export default {
     secret,
     "cap:fmt2-v1",
   );
+  const minimalObjectEncrypted = cryptoModule.encryptGcm({}, secret);
+  const numberNonceValues = [
+    ["one", 1.0],
+    ["negative-zero", -0],
+    ["fraction", 1.5],
+    ["plain-upper-bound", 1e20],
+    ["scientific-upper-bound", 1e21],
+    ["plain-lower-bound", 1e-6],
+    ["scientific-lower-bound", 1e-7],
+    ["minimum-subnormal", Number.MIN_VALUE],
+    ["shortest-large-integer", 1000000000000000128],
+    ["rounded-long", Number(9007199254740993n)],
+  ];
+  const numberNonceVectors = numberNonceValues.map(([label, value], index) => {
+    const jsString = String(value);
+    const salt = `nonce-${label}:`;
+    const hash = cryptoModule.sha256Bytes(`${salt}${jsString}`);
+    const target = hash.toString("hex").slice(0, 3);
+    const wireTarget = index % 2 === 0 ? target.toUpperCase() : target;
+    if (!cryptoModule.powMatchesPrefix(hash, cryptoModule.parseHexPrefix(wireTarget))) {
+      throw new Error(`upstream rejected number nonce vector ${label}`);
+    }
+    return { label, value, jsString, salt, target: wireTarget };
+  });
 
   const actual = {
     source: {
@@ -191,9 +215,37 @@ export default {
     cryptoVectors: {
       format1: { metadata: format1Metadata, encrypted: format1Encrypted },
       format2: { metadata: format2Metadata, encrypted: format2Encrypted },
+      minimalFormat1: { metadata: {}, encrypted: minimalObjectEncrypted },
     },
+    numberNonceVectors,
     deterministicRandomCalls: deterministicCrypto.requestedSizes,
   };
+
+  const javaFixture = JSON.parse(
+    await readFile(
+      resolve(
+        repositoryRoot,
+        "src/test/resources/fixtures/capjs-core-0.1.1/format2-java.json",
+      ),
+      "utf8",
+    ),
+  );
+  const javaRedeemed = await core.validateChallenge(
+    secret,
+    {
+      token: javaFixture.generated.token,
+      solutions: javaFixture.solutions,
+    },
+    {
+      scope: "login",
+      signToken: ({ scope, expires, iat }) => `java:${scope}:${expires}:${iat}`,
+    },
+  );
+  if (!javaRedeemed.success) {
+    throw new Error(
+      `upstream rejected deterministic Java Format 2 fixture: ${JSON.stringify(javaRedeemed)}`,
+    );
+  }
 
   if (mode === "--print") {
     process.stdout.write(`${JSON.stringify(actual, null, 2)}\n`);
@@ -208,6 +260,7 @@ export default {
         generated: true,
         redeemed: true,
         protocols: actual.options.protocols,
+        javaGeneratedRedeemed: true,
       }),
     );
   }

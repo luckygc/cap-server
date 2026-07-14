@@ -154,14 +154,91 @@
         ]
       },
       "encrypted": "w-D9GjdUcY6ryOUCntpoboODCxgGwJbgAxY3RuxaJoOGIdKgjozvlEsDHOsjgZbNAsZBsBaJa8B3EOvDSLsrtepzfy688v95"
+    },
+    "minimalFormat1": {
+      "metadata": {},
+      "encrypted": "HzxZdpOwzeoHJEFe-o-uEg4u3DWemg9s_j-mMBFd"
     }
   },
+  "numberNonceVectors": [
+    {
+      "label": "one",
+      "value": 1,
+      "jsString": "1",
+      "salt": "nonce-one:",
+      "target": "22A"
+    },
+    {
+      "label": "negative-zero",
+      "value": 0,
+      "jsString": "0",
+      "salt": "nonce-negative-zero:",
+      "target": "23f"
+    },
+    {
+      "label": "fraction",
+      "value": 1.5,
+      "jsString": "1.5",
+      "salt": "nonce-fraction:",
+      "target": "7A7"
+    },
+    {
+      "label": "plain-upper-bound",
+      "value": 100000000000000000000,
+      "jsString": "100000000000000000000",
+      "salt": "nonce-plain-upper-bound:",
+      "target": "f88"
+    },
+    {
+      "label": "scientific-upper-bound",
+      "value": 1e+21,
+      "jsString": "1e+21",
+      "salt": "nonce-scientific-upper-bound:",
+      "target": "BDE"
+    },
+    {
+      "label": "plain-lower-bound",
+      "value": 0.000001,
+      "jsString": "0.000001",
+      "salt": "nonce-plain-lower-bound:",
+      "target": "967"
+    },
+    {
+      "label": "scientific-lower-bound",
+      "value": 1e-7,
+      "jsString": "1e-7",
+      "salt": "nonce-scientific-lower-bound:",
+      "target": "488"
+    },
+    {
+      "label": "minimum-subnormal",
+      "value": 5e-324,
+      "jsString": "5e-324",
+      "salt": "nonce-minimum-subnormal:",
+      "target": "0d5"
+    },
+    {
+      "label": "shortest-large-integer",
+      "value": 1000000000000000100,
+      "jsString": "1000000000000000100",
+      "salt": "nonce-shortest-large-integer:",
+      "target": "4D4"
+    },
+    {
+      "label": "rounded-long",
+      "value": 9007199254740992,
+      "jsString": "9007199254740992",
+      "salt": "nonce-rounded-long:",
+      "target": "472"
+    }
+  ],
   "deterministicRandomCalls": [
     4,
     128,
     32,
     32,
     16,
+    12,
     12,
     12,
     12

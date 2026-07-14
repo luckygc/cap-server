@@ -223,10 +223,13 @@ public final class Format1Protocol {
     }
 
     static String sha256Hex(String value) {
+        return HEX.formatHex(sha256Bytes(value));
+    }
+
+    static byte[] sha256Bytes(String value) {
         try {
-            return HEX.formatHex(
-                    MessageDigest.getInstance("SHA-256")
-                            .digest(value.getBytes(StandardCharsets.UTF_8)));
+            return MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
         } catch (GeneralSecurityException exception) {
             throw new IllegalStateException("运行环境缺少 SHA-256", exception);
         }

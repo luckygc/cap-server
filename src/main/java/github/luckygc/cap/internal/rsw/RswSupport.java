@@ -30,7 +30,8 @@ public final class RswSupport {
         return createMinter(keyPair, t, new SecureRandom());
     }
 
-    static RswMinter createMinter(RswKeyPair keyPair, int t, SecureRandom random) {
+    /** 使用调用方随机源构建 minter，供内部协议组合器和确定性互操作测试注入。 */
+    public static RswMinter createMinter(RswKeyPair keyPair, int t, SecureRandom random) {
         Objects.requireNonNull(keyPair, "keyPair");
         Objects.requireNonNull(random, "random");
         validateT(t);

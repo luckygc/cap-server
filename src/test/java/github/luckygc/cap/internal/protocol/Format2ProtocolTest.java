@@ -2,7 +2,6 @@ package github.luckygc.cap.internal.protocol;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import github.luckygc.cap.CapProtocol;
 import github.luckygc.cap.ChallengeOptions;
@@ -16,6 +15,7 @@ import github.luckygc.cap.internal.json.ProtocolJsonCodec;
 import github.luckygc.cap.internal.rsw.RswSupport;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -79,6 +79,12 @@ class Format2ProtocolTest {
     }
 
     @Test
+    @DisplayName("确定性 Java 三协议生成逐字段匹配静态 fixture")
+    void matchesDeterministicJavaGenerationFixture() throws IOException {
+        assertThat(javaGenerationOracle()).isEqualTo(javaFixture());
+    }
+
+    @Test
     @DisplayName("生成时保持协议顺序并仅在密文中保存 expected")
     void generatesOrderedChallengesWithoutLeakingExpectedValues() {
         Format2Protocol protocol = protocol();
@@ -120,15 +126,24 @@ class Format2ProtocolTest {
     }
 
     @Test
-    @DisplayName("拒绝空、重复或缺少依赖的协议列表")
-    void rejectsInvalidProtocolConfiguration() {
+    @DisplayName("空协议回退 RSW、重复保序并拒绝 null")
+    void appliesUpstreamProtocolConfigurationSemantics() {
+        assertThat(protocol(List.of()).generate(ChallengeOptions.defaults()).challenges())
+                .extracting(ChallengeResponse.ProtocolChallenge::protocol)
+                .containsExactly("rsw");
+        assertThat(
+                        protocol(
+                                        List.of(
+                                                CapProtocol.RSW,
+                                                CapProtocol.RSW,
+                                                CapProtocol.RSW,
+                                                CapProtocol.RSW))
+                                .generate(ChallengeOptions.defaults())
+                                .challenges())
+                .extracting(ChallengeResponse.ProtocolChallenge::protocol)
+                .containsExactly("rsw", "rsw", "rsw", "rsw");
+        assertThatIllegalArgumentException().isThrownBy(() -> protocol(null));
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> protocol(List.of()))
-                .withMessageContaining("protocols");
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> protocol(List.of(CapProtocol.RSW, CapProtocol.RSW)))
-                .withMessageContaining("duplicate");
-        assertThatNullPointerException()
                 .isThrownBy(() -> protocol(Arrays.asList(CapProtocol.RSW, null)));
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> protocol(List.of(CapProtocol.RSW), null))
@@ -249,7 +264,7 @@ class Format2ProtocolTest {
     }
 
     @Test
-    @DisplayName("SHA nonce 接受整数和字符串并拒绝其他类型或错误解答")
+    @DisplayName("SHA nonce 接受 Number 和字符串并拒绝错误解答")
     void validatesShaSolutions() {
         Map<String, @Nullable Object> expected =
                 Map.of(
@@ -269,10 +284,114 @@ class Format2ProtocolTest {
                                         null))
                 .isInstanceOf(Format2Protocol.Validated.class);
         assertFailure(
-                protocol().validate(request(token, List.of(Map.of("nonce", 1.5))), null),
-                "invalid_solution");
-        assertFailure(
                 protocol().validate(request(token, List.of(Map.of("nonce", nonce + 1))), null),
+                "invalid_solution");
+    }
+
+    @Test
+    @DisplayName("NumberToString 精确匹配 JavaScript 边界语义")
+    void formatsJavaNumbersLikeJavaScript() {
+        assertThat(Format2Protocol.jsNumberToString(1.0)).isEqualTo("1");
+        assertThat(Format2Protocol.jsNumberToString(-0.0)).isEqualTo("0");
+        assertThat(Format2Protocol.jsNumberToString(1.5)).isEqualTo("1.5");
+        assertThat(Format2Protocol.jsNumberToString(1e20)).isEqualTo("100000000000000000000");
+        assertThat(Format2Protocol.jsNumberToString(1e21)).isEqualTo("1e+21");
+        assertThat(Format2Protocol.jsNumberToString(1e-6)).isEqualTo("0.000001");
+        assertThat(Format2Protocol.jsNumberToString(1e-7)).isEqualTo("1e-7");
+        assertThat(Format2Protocol.jsNumberToString(Double.MIN_VALUE)).isEqualTo("5e-324");
+        assertThat(Format2Protocol.jsNumberToString(1_000_000_000_000_000_128L))
+                .isEqualTo("1000000000000000100");
+        assertThat(Format2Protocol.jsNumberToString(9_007_199_254_740_993L))
+                .isEqualTo("9007199254740992");
+        assertThat(Format2Protocol.jsNumberToString(new BigInteger("900719925474099299999")))
+                .isEqualTo("900719925474099300000");
+        assertThat(Format2Protocol.jsNumberToString(Double.NaN)).isEqualTo("NaN");
+        assertThat(Format2Protocol.jsNumberToString(Double.POSITIVE_INFINITY))
+                .isEqualTo("Infinity");
+        assertThat(Format2Protocol.jsNumberToString(Double.NEGATIVE_INFINITY))
+                .isEqualTo("-Infinity");
+    }
+
+    @Test
+    @DisplayName("SHA Number nonce、大小写和奇数 nibble 匹配上游 crypto oracle")
+    void validatesUpstreamNumberNonceAndHexPrefixVectors() throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Map<String, @Nullable Object>> vectors =
+                (List<Map<String, @Nullable Object>>) fixture().get("numberNonceVectors");
+
+        for (Map<String, @Nullable Object> vector : vectors) {
+            Map<String, @Nullable Object> expected =
+                    Map.of(
+                            "expected",
+                            List.of(
+                                    Map.of(
+                                            "protocol",
+                                            "sha256-pow",
+                                            "salt",
+                                            vector.get("salt"),
+                                            "target",
+                                            vector.get("target"))));
+            String token = sign(expected, future(), now(), null);
+
+            assertThat(
+                            protocol()
+                                    .validate(
+                                            request(
+                                                    token,
+                                                    List.of(Map.of("nonce", vector.get("value")))),
+                                            null))
+                    .as((String) vector.get("label"))
+                    .isInstanceOf(Format2Protocol.Validated.class);
+        }
+    }
+
+    @Test
+    @DisplayName("拒绝非法或超过 SHA-256 宽度的 target")
+    void rejectsInvalidHexTargets() {
+        for (String target : List.of("g", "0g", "-1", "0".repeat(65))) {
+            Map<String, @Nullable Object> expected =
+                    Map.of(
+                            "expected",
+                            List.of(
+                                    Map.of(
+                                            "protocol",
+                                            "sha256-pow",
+                                            "salt",
+                                            "salt",
+                                            "target",
+                                            target)));
+            assertFailure(
+                    protocol()
+                            .validate(
+                                    request(
+                                            sign(expected, future(), now(), null),
+                                            List.of(Map.of("nonce", 1))),
+                                    null),
+                    "invalid_solution");
+        }
+
+        String asciiNibble = Format1Protocol.sha256Hex("salt1").substring(0, 1);
+        char ascii = asciiNibble.charAt(0);
+        String fullWidth =
+                Character.toString(ascii <= '9' ? '\uff10' + ascii - '0' : '\uff41' + ascii - 'a');
+        Map<String, @Nullable Object> expected =
+                Map.of(
+                        "expected",
+                        List.of(
+                                Map.of(
+                                        "protocol",
+                                        "sha256-pow",
+                                        "salt",
+                                        "salt",
+                                        "target",
+                                        fullWidth)));
+        assertFailure(
+                protocol()
+                        .validate(
+                                request(
+                                        sign(expected, future(), now(), null),
+                                        List.of(Map.of("nonce", 1))),
+                                null),
                 "invalid_solution");
     }
 
@@ -335,8 +454,8 @@ class Format2ProtocolTest {
         @SuppressWarnings("unchecked")
         List<Map<String, @Nullable Object>> expected =
                 (List<Map<String, @Nullable Object>>) metadata.get("expected");
-        Map<String, @Nullable Object> onlyInstrumentation =
-                Map.of("expected", List.of(expected.get(2)));
+        Map<String, @Nullable Object> instrEntry = expected.get(2);
+        Map<String, @Nullable Object> onlyInstrumentation = Map.of("expected", List.of(instrEntry));
         String token = sign(onlyInstrumentation, future(), now(), null);
         @SuppressWarnings("unchecked")
         Map<String, @Nullable Object> fixtureSolution =
@@ -381,6 +500,73 @@ class Format2ProtocolTest {
                                 null),
                 "id_mismatch",
                 true);
+        assertFailure(
+                protocol()
+                        .validate(
+                                request(token, List.of(Map.of("blocked", "yes", "timeout", true))),
+                                null),
+                "instr_timeout",
+                true);
+        assertFailure(
+                protocol().validate(request(token, List.of(Map.of("instr", "scalar"))), null),
+                "missing_output",
+                true);
+        assertFailure(
+                protocol().validate(request(token, List.of(Map.of("instr", List.of()))), null),
+                "id_mismatch",
+                true);
+        for (Object falsey : List.of(false, 0, 0.0, "")) {
+            assertFailure(
+                    protocol().validate(request(token, List.of(Map.of("instr", falsey))), null),
+                    "instr_missing",
+                    true);
+        }
+        assertThat(
+                        protocol()
+                                .validate(
+                                        request(
+                                                token,
+                                                List.of(
+                                                        Map.of(
+                                                                "blocked",
+                                                                "yes",
+                                                                "timeout",
+                                                                "no",
+                                                                "instr",
+                                                                fixtureSolution.get("instr")))),
+                                        null))
+                .isInstanceOf(Format2Protocol.Validated.class);
+
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> instrMeta =
+                new LinkedHashMap<>((Map<String, @Nullable Object>) instrEntry.get("instrMeta"));
+        instrMeta.put("blockAutomatedBrowsers", false);
+        Map<String, @Nullable Object> nonBlockingEntry = new LinkedHashMap<>(instrEntry);
+        nonBlockingEntry.put("instrMeta", instrMeta);
+        String nonBlockingToken =
+                sign(Map.of("expected", List.of(nonBlockingEntry)), future(), now(), null);
+        assertThat(
+                        protocol()
+                                .validate(
+                                        request(nonBlockingToken, List.of(Map.of("blocked", true))),
+                                        null))
+                .isInstanceOf(Format2Protocol.Validated.class);
+    }
+
+    @Test
+    @DisplayName("JavaScript truthiness 仅把规定的标量视为 false")
+    void matchesJavaScriptTruthinessForInstrumentationDispatch() {
+        assertThat(Format2Protocol.jsTruthy(null)).isFalse();
+        assertThat(Format2Protocol.jsTruthy(false)).isFalse();
+        assertThat(Format2Protocol.jsTruthy(0)).isFalse();
+        assertThat(Format2Protocol.jsTruthy(-0.0)).isFalse();
+        assertThat(Format2Protocol.jsTruthy(Double.NaN)).isFalse();
+        assertThat(Format2Protocol.jsTruthy("")).isFalse();
+        assertThat(Format2Protocol.jsTruthy(true)).isTrue();
+        assertThat(Format2Protocol.jsTruthy(1)).isTrue();
+        assertThat(Format2Protocol.jsTruthy("0")).isTrue();
+        assertThat(Format2Protocol.jsTruthy(Map.of())).isTrue();
+        assertThat(Format2Protocol.jsTruthy(List.of())).isTrue();
     }
 
     private static Format2Protocol protocol() {
@@ -407,21 +593,128 @@ class Format2ProtocolTest {
     }
 
     private static RswSupport.RswMinter minter() {
+        return RswSupport.createMinter(keyPair(), 8);
+    }
+
+    private static RswKeyPair keyPair() {
         try {
             Map<String, @Nullable Object> fixture = fixture();
             @SuppressWarnings("unchecked")
             Map<String, @Nullable Object> keypair =
                     (Map<String, @Nullable Object>) fixture.get("keypair");
-            RswKeyPair pair =
-                    new RswKeyPair(
-                            ((Number) keypair.get("bits")).intValue(),
-                            (String) keypair.get("N"),
-                            (String) keypair.get("p"),
-                            (String) keypair.get("q"));
-            return RswSupport.createMinter(pair, 8);
+            return new RswKeyPair(
+                    ((Number) keypair.get("bits")).intValue(),
+                    (String) keypair.get("N"),
+                    (String) keypair.get("p"),
+                    (String) keypair.get("q"));
         } catch (IOException exception) {
             throw new IllegalStateException(exception);
         }
+    }
+
+    private static Map<String, @Nullable Object> javaGenerationOracle() {
+        Format2Protocol protocol =
+                new Format2Protocol(
+                        SECRET,
+                        List.of(
+                                CapProtocol.SHA256_POW,
+                                CapProtocol.RSW,
+                                CapProtocol.INSTRUMENTATION),
+                        1,
+                        4,
+                        1,
+                        RswSupport.createMinter(keyPair(), 8, new OracleSecureRandom(0x13579bdfL)),
+                        InstrumentationOptions.builder()
+                                .level(1)
+                                .blockAutomatedBrowsers(true)
+                                .build(),
+                        CLOCK,
+                        new OracleSecureRandom(0x2468ace0L));
+        ChallengeOptions options =
+                ChallengeOptions.builder()
+                        .scope("login")
+                        .extra(Map.of("tenant", "java-oracle"))
+                        .ttl(Duration.ofMinutes(10))
+                        .build();
+        ChallengeResponse.Format2 response = protocol.generate(options);
+        Map<String, @Nullable Object> payload =
+                new JwtCodec(SECRET).verify(response.token()).orElseThrow();
+        Map<String, @Nullable Object> metadata =
+                new EncryptedMetadataCodec(SECRET)
+                        .decryptFormat2((String) payload.get("ev"))
+                        .orElseThrow();
+        @SuppressWarnings("unchecked")
+        List<Map<String, @Nullable Object>> expected =
+                (List<Map<String, @Nullable Object>>) metadata.get("expected");
+        List<@Nullable Object> solutions = new ArrayList<>();
+        for (Map<String, @Nullable Object> entry : expected) {
+            switch ((String) entry.get("protocol")) {
+                case "sha256-pow" ->
+                        solutions.add(
+                                Map.of(
+                                        "nonce",
+                                        solve(
+                                                (String) entry.get("salt"),
+                                                (String) entry.get("target"))));
+                case "rsw" -> solutions.add(Map.of("y", entry.get("y")));
+                case "instrumentation" -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, @Nullable Object> meta =
+                            (Map<String, @Nullable Object>) entry.get("instrMeta");
+                    @SuppressWarnings("unchecked")
+                    List<String> variables = (List<String>) meta.get("vars");
+                    @SuppressWarnings("unchecked")
+                    List<@Nullable Object> values =
+                            (List<@Nullable Object>) meta.get("expectedVals");
+                    Map<String, @Nullable Object> state = new LinkedHashMap<>();
+                    for (int index = 0; index < variables.size(); index++) {
+                        state.put(variables.get(index), values.get(index));
+                    }
+                    solutions.add(
+                            Map.of(
+                                    "instr",
+                                    Map.of("i", meta.get("id"), "state", state, "ts", now() + 1)));
+                }
+                default -> throw new AssertionError("unexpected protocol");
+            }
+        }
+        Format2Protocol.Validated validated =
+                (Format2Protocol.Validated)
+                        protocol.validate(request(response.token(), solutions), "login");
+        Map<String, @Nullable Object> generated = new LinkedHashMap<>();
+        generated.put("format", response.format());
+        generated.put(
+                "challenges",
+                response.challenges().stream()
+                        .map(
+                                challenge ->
+                                        Map.of(
+                                                "protocol", challenge.protocol(),
+                                                "payload", challenge.payload()))
+                        .toList());
+        generated.put("token", response.token());
+        generated.put("expires", response.expires());
+        Map<String, @Nullable Object> oracle = new LinkedHashMap<>();
+        oracle.put(
+                "source",
+                Map.of(
+                        "generator",
+                        "Format2ProtocolTest.javaGenerationOracle",
+                        "clock",
+                        now(),
+                        "secret",
+                        SECRET));
+        oracle.put("generated", generated);
+        oracle.put("solutions", solutions);
+        oracle.put(
+                "validated",
+                Map.of(
+                        "scope", validated.scope(),
+                        "iat", validated.issuedAt(),
+                        "exp", validated.expires(),
+                        "signatureHex", validated.signatureHex()));
+        ProtocolJsonCodec codec = new ProtocolJsonCodec();
+        return codec.readObject(codec.writeObject(oracle));
     }
 
     private static RedeemRequest request(Map<String, @Nullable Object> fixture) {
@@ -496,6 +789,17 @@ class Format2ProtocolTest {
         }
     }
 
+    private static Map<String, @Nullable Object> javaFixture() throws IOException {
+        try (InputStream input =
+                Format2ProtocolTest.class.getResourceAsStream(
+                        "/fixtures/capjs-core-0.1.1/format2-java.json")) {
+            if (input == null) {
+                throw new IOException("Java Format 2 fixture 不存在");
+            }
+            return new ProtocolJsonCodec().readObject(input.readAllBytes());
+        }
+    }
+
     private static void assertFailure(Format2Protocol.ValidationResult result, String reason) {
         assertFailure(result, reason, false);
     }
@@ -519,6 +823,38 @@ class Format2ProtocolTest {
         @Override
         public int nextInt(int origin, int bound) {
             return origin;
+        }
+    }
+
+    private static final class OracleSecureRandom extends SecureRandom {
+
+        private int byteValue;
+        private long state;
+
+        private OracleSecureRandom(long seed) {
+            state = seed;
+        }
+
+        @Override
+        public void nextBytes(byte[] bytes) {
+            for (int index = 0; index < bytes.length; index++) {
+                bytes[index] = (byte) ((byteValue++ * 29 + 7) & 0xff);
+            }
+        }
+
+        @Override
+        public double nextDouble() {
+            return nextUnsigned() / (double) 0x1_0000_0000L;
+        }
+
+        @Override
+        public int nextInt(int origin, int bound) {
+            return origin + (int) (nextUnsigned() % (bound - origin));
+        }
+
+        private long nextUnsigned() {
+            state = (state * 1_664_525L + 1_013_904_223L) & 0xffff_ffffL;
+            return state;
         }
     }
 }

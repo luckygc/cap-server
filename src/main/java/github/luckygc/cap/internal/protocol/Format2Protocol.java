@@ -12,17 +12,17 @@ import github.luckygc.cap.internal.instrumentation.InstrumentationGenerator.Gene
 import github.luckygc.cap.internal.instrumentation.InstrumentationVerifier;
 import github.luckygc.cap.internal.rsw.RswSupport;
 import github.luckygc.cap.internal.rsw.RswSupport.MintedChallenge;
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /** capjs-core Format 2 的有序多协议 challenge 生成与验证。 */
@@ -31,7 +31,6 @@ public final class Format2Protocol {
     private static final int MAX_COUNT = 1000;
     private static final int MAX_SIZE = 256;
     private static final int MAX_DIFFICULTY = 16;
-    private static final int MAX_EXPECTED = MAX_COUNT + 2;
     private static final int MAX_PROTOCOL_MAP_ENTRIES = 16;
     private static final HexFormat HEX = HexFormat.of();
 
@@ -174,7 +173,7 @@ public final class Format2Protocol {
                 || !(metadata.get("expected") instanceof List<?> expected)) {
             return failure("invalid_token");
         }
-        if (expected.isEmpty() || expected.size() > MAX_EXPECTED) {
+        if (expected.isEmpty()) {
             return failure("invalid_token");
         }
         List<@Nullable Object> solutions = request.solutions();
@@ -199,10 +198,15 @@ public final class Format2Protocol {
         String target = "0".repeat(difficulty);
         for (int index = 0; index < count; index++) {
             String salt = randomHex(size);
-            challenges.add(
-                    new ChallengeResponse.ProtocolChallenge(
-                            "sha256-pow", Map.of("salt", salt, "target", target)));
-            expected.add(Map.of("protocol", "sha256-pow", "salt", salt, "target", target));
+            Map<String, @Nullable Object> challengePayload = new LinkedHashMap<>();
+            challengePayload.put("salt", salt);
+            challengePayload.put("target", target);
+            challenges.add(new ChallengeResponse.ProtocolChallenge("sha256-pow", challengePayload));
+            Map<String, @Nullable Object> expectedEntry = new LinkedHashMap<>();
+            expectedEntry.put("protocol", "sha256-pow");
+            expectedEntry.put("salt", salt);
+            expectedEntry.put("target", target);
+            expected.add(expectedEntry);
         }
     }
 
@@ -211,10 +215,15 @@ public final class Format2Protocol {
             List<Map<String, @Nullable Object>> expected) {
         RswSupport.RswMinter minter = Objects.requireNonNull(rswMinter, "rswMinter");
         MintedChallenge minted = minter.mint();
-        challenges.add(
-                new ChallengeResponse.ProtocolChallenge(
-                        "rsw", Map.of("N", minted.modulus(), "x", minted.x(), "t", minted.t())));
-        expected.add(Map.of("protocol", "rsw", "y", minted.y()));
+        Map<String, @Nullable Object> challengePayload = new LinkedHashMap<>();
+        challengePayload.put("N", minted.modulus());
+        challengePayload.put("x", minted.x());
+        challengePayload.put("t", minted.t());
+        challenges.add(new ChallengeResponse.ProtocolChallenge("rsw", challengePayload));
+        Map<String, @Nullable Object> expectedEntry = new LinkedHashMap<>();
+        expectedEntry.put("protocol", "rsw");
+        expectedEntry.put("y", minted.y());
+        expected.add(expectedEntry);
     }
 
     private void generateInstrumentation(
@@ -262,10 +271,42 @@ public final class Format2Protocol {
             return failure("invalid_solution");
         }
         @Nullable String nonce = nonceText(solution.get("nonce"));
-        if (nonce == null || !Format1Protocol.sha256Hex(salt + nonce).startsWith(target)) {
+        if (nonce == null || !matchesHexPrefix(Format1Protocol.sha256Bytes(salt + nonce), target)) {
             return failure("invalid_solution");
         }
         return null;
+    }
+
+    private static boolean matchesHexPrefix(byte[] hash, String target) {
+        if (target.length() > hash.length * 2) {
+            return false;
+        }
+        int fullBytes = target.length() / 2;
+        for (int index = 0; index < fullBytes; index++) {
+            int high = asciiHexNibble(target.charAt(index * 2));
+            int low = asciiHexNibble(target.charAt(index * 2 + 1));
+            if (high < 0 || low < 0 || (hash[index] & 0xff) != (high << 4 | low)) {
+                return false;
+            }
+        }
+        if (target.length() % 2 != 0) {
+            int nibble = asciiHexNibble(target.charAt(target.length() - 1));
+            return nibble >= 0 && (hash[fullBytes] & 0xff) >>> 4 == nibble;
+        }
+        return true;
+    }
+
+    private static int asciiHexNibble(char value) {
+        if (value >= '0' && value <= '9') {
+            return value - '0';
+        }
+        if (value >= 'a' && value <= 'f') {
+            return value - 'a' + 10;
+        }
+        if (value >= 'A' && value <= 'F') {
+            return value - 'A' + 10;
+        }
+        return -1;
     }
 
     private static @Nullable ProtocolFailure validateRsw(Map<?, ?> expected, Map<?, ?> solution) {
@@ -287,9 +328,6 @@ public final class Format2Protocol {
         if (metadata.expires() != 0 && clock.millis() > metadata.expires()) {
             return instrumentationFailure("instr_expired");
         }
-        if (invalidBoolean(solution, "blocked") || invalidBoolean(solution, "timeout")) {
-            return failure("invalid_solution");
-        }
         if (Boolean.TRUE.equals(solution.get("blocked"))) {
             return metadata.blockAutomatedBrowsers()
                     ? instrumentationFailure("instr_automated_browser")
@@ -298,12 +336,18 @@ public final class Format2Protocol {
         if (Boolean.TRUE.equals(solution.get("timeout"))) {
             return instrumentationFailure("instr_timeout");
         }
-        if (!solution.containsKey("instr")) {
+        @Nullable Object instr = solution.get("instr");
+        if (!jsTruthy(instr)) {
             return instrumentationFailure("instr_missing");
         }
-        if (!(solution.get("instr") instanceof Map<?, ?> output)
-                || output.size() > MAX_PROTOCOL_MAP_ENTRIES) {
-            return failure("invalid_solution");
+        if (instr instanceof List<?>) {
+            return instrumentationFailure("id_mismatch");
+        }
+        if (!(instr instanceof Map<?, ?> output)) {
+            return instrumentationFailure("missing_output");
+        }
+        if (output.size() > MAX_PROTOCOL_MAP_ENTRIES) {
+            return instrumentationFailure("invalid_state");
         }
         @Nullable Map<String, @Nullable Object> state = stringMap(output.get("state"));
         InstrumentationVerifier.VerificationResult result =
@@ -375,27 +419,103 @@ public final class Format2Protocol {
         return result;
     }
 
-    private static boolean invalidBoolean(Map<?, ?> solution, String key) {
-        return solution.containsKey(key) && !(solution.get(key) instanceof Boolean);
-    }
-
     private static @Nullable String nonceText(@Nullable Object value) {
-        if (value instanceof Byte number) {
-            return number.toString();
-        }
-        if (value instanceof Short number) {
-            return number.toString();
-        }
-        if (value instanceof Integer number) {
-            return number.toString();
-        }
-        if (value instanceof Long number) {
-            return number.toString();
-        }
-        if (value instanceof BigInteger number) {
-            return number.toString();
+        if (value instanceof Number number) {
+            return jsNumberToString(number);
         }
         return value instanceof String string ? string : null;
+    }
+
+    static String jsNumberToString(Number number) {
+        double value = number.doubleValue();
+        if (Double.isNaN(value)) {
+            return "NaN";
+        }
+        if (value == Double.POSITIVE_INFINITY) {
+            return "Infinity";
+        }
+        if (value == Double.NEGATIVE_INFINITY) {
+            return "-Infinity";
+        }
+        if (value == 0.0) {
+            return "0";
+        }
+        double absolute = Math.abs(value);
+        BigDecimal shortest = shortestDecimal(value);
+        if (absolute >= 1e-6 && absolute < 1e21) {
+            return shortest.toPlainString();
+        }
+        BigDecimal magnitude = shortest.abs();
+        String digits = magnitude.unscaledValue().abs().toString();
+        int exponent = digits.length() - magnitude.scale() - 1;
+        StringBuilder scientific = new StringBuilder();
+        if (value < 0) {
+            scientific.append('-');
+        }
+        scientific.append(digits.charAt(0));
+        if (digits.length() > 1) {
+            scientific.append('.').append(digits, 1, digits.length());
+        }
+        scientific.append('e');
+        if (exponent >= 0) {
+            scientific.append('+');
+        }
+        return scientific.append(exponent).toString();
+    }
+
+    private static BigDecimal shortestDecimal(double value) {
+        boolean negative = value < 0;
+        double absolute = Math.abs(value);
+        BigDecimal exact = new BigDecimal(absolute);
+        int decimalExponent = exact.precision() - exact.scale() - 1;
+        for (int precision = 1; precision <= 17; precision++) {
+            int power = decimalExponent - precision + 1;
+            BigDecimal scaled = exact.scaleByPowerOfTen(-power);
+            BigInteger nearest = scaled.setScale(0, RoundingMode.HALF_EVEN).toBigIntegerExact();
+            @Nullable BigDecimal best = null;
+            @Nullable BigDecimal bestDistance = null;
+            @Nullable BigInteger bestSignificand = null;
+            for (int offset = -2; offset <= 2; offset++) {
+                BigInteger significand = nearest.add(BigInteger.valueOf(offset));
+                if (significand.signum() <= 0) {
+                    continue;
+                }
+                BigDecimal candidate = new BigDecimal(significand).scaleByPowerOfTen(power);
+                if (Double.doubleToRawLongBits(candidate.doubleValue())
+                        != Double.doubleToRawLongBits(absolute)) {
+                    continue;
+                }
+                BigDecimal distance = candidate.subtract(exact).abs();
+                if (bestDistance == null
+                        || distance.compareTo(bestDistance) < 0
+                        || distance.compareTo(bestDistance) == 0
+                                && bestSignificand != null
+                                && bestSignificand.testBit(0)
+                                && !significand.testBit(0)) {
+                    best = candidate;
+                    bestDistance = distance;
+                    bestSignificand = significand;
+                }
+            }
+            if (best != null) {
+                return (negative ? best.negate() : best).stripTrailingZeros();
+            }
+        }
+        throw new IllegalStateException("无法生成 JavaScript Number 字符串");
+    }
+
+    static boolean jsTruthy(@Nullable Object value) {
+        if (value == null || Boolean.FALSE.equals(value)) {
+            return false;
+        }
+        if (value instanceof Number number) {
+            double numeric = number.doubleValue();
+            return numeric != 0.0 && !Double.isNaN(numeric);
+        }
+        if (value instanceof String string) {
+            return !string.isEmpty();
+        }
+        return true;
     }
 
     private static @Nullable Long protocolInteger(@Nullable Object value) {
@@ -419,19 +539,23 @@ public final class Format2Protocol {
 
     private static List<CapProtocol> validatedProtocols(
             List<CapProtocol> protocols, RswSupport.@Nullable RswMinter rswMinter) {
-        Objects.requireNonNull(protocols, "protocols");
-        if (protocols.isEmpty() || protocols.size() > CapProtocol.values().length) {
-            throw new IllegalArgumentException("protocols must contain 1 to 3 entries");
+        if (protocols == null) {
+            throw new IllegalArgumentException("protocols must not be null");
         }
-        List<CapProtocol> copy = List.copyOf(protocols);
-        Set<CapProtocol> unique = new HashSet<>(copy);
-        if (unique.size() != copy.size()) {
-            throw new IllegalArgumentException("protocols must not contain duplicates");
+        List<CapProtocol> copy = new ArrayList<>(protocols.size());
+        for (@Nullable CapProtocol protocol : protocols) {
+            if (protocol == null) {
+                throw new IllegalArgumentException("protocols must not contain null");
+            }
+            copy.add(protocol);
         }
-        if (unique.contains(CapProtocol.RSW) && rswMinter == null) {
+        if (copy.isEmpty()) {
+            copy.add(CapProtocol.RSW);
+        }
+        if (copy.contains(CapProtocol.RSW) && rswMinter == null) {
             throw new IllegalArgumentException("RSW protocol requires an RSW minter");
         }
-        return copy;
+        return List.copyOf(copy);
     }
 
     private static void validatePowParameters(int count, int size, int difficulty) {

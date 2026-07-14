@@ -2,7 +2,6 @@ package github.luckygc.cap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.AnnotatedParameterizedType;
@@ -253,16 +252,14 @@ class CapApiTest {
     }
 
     @Test
-    @DisplayName("Builder 校验协议配置")
-    void builderValidatesProtocols() {
+    @DisplayName("Builder 允许空协议回退和重复保序并拒绝 null")
+    void builderUsesUpstreamProtocolConfigurationSemantics() {
         CapBuilder builder = Cap.builder("0123456789abcdef");
 
-        assertThatIllegalArgumentException().isThrownBy(() -> builder.protocols());
-        assertThatNullPointerException()
-                .isThrownBy(() -> builder.protocols(CapProtocol.SHA256_POW, null));
+        assertThat(builder.protocols()).isSameAs(builder);
+        assertThat(builder.protocols(CapProtocol.RSW, CapProtocol.RSW)).isSameAs(builder);
         assertThatIllegalArgumentException()
-                .isThrownBy(
-                        () -> builder.protocols(CapProtocol.SHA256_POW, CapProtocol.SHA256_POW));
+                .isThrownBy(() -> builder.protocols(CapProtocol.SHA256_POW, null));
     }
 
     @Test

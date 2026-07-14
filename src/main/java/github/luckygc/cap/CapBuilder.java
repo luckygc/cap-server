@@ -1,8 +1,6 @@
 package github.luckygc.cap;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -53,16 +51,14 @@ public final class CapBuilder {
     }
 
     public CapBuilder protocols(CapProtocol... protocols) {
-        Objects.requireNonNull(protocols, "protocols");
-        if (protocols.length == 0) {
-            throw new IllegalArgumentException("protocols must not be empty");
+        if (protocols == null) {
+            throw new IllegalArgumentException("protocols must not be null");
         }
         CapProtocol[] copy = protocols.clone();
         for (CapProtocol protocol : copy) {
-            Objects.requireNonNull(protocol, "protocol");
-        }
-        if (new HashSet<>(Arrays.asList(copy)).size() != copy.length) {
-            throw new IllegalArgumentException("protocols must not contain duplicates");
+            if (protocol == null) {
+                throw new IllegalArgumentException("protocols must not contain null");
+            }
         }
         this.protocols = copy;
         return this;
