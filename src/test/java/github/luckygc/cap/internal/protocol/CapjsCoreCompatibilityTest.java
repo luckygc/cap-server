@@ -162,15 +162,18 @@ class CapjsCoreCompatibilityTest {
         Map<String, @Nullable Object> filesSha256 =
                 (Map<String, @Nullable Object>) npm.get("filesSha256");
         assertThat(filesSha256)
-                .containsOnlyKeys(
-                        "crypto.js", "index.js", "instrumentation.js", "prng.js", "rsw.js")
-                .allSatisfy(
-                        (name, digest) ->
-                                assertThat(digest)
-                                        .as(name)
-                                        .isInstanceOf(String.class)
-                                        .asString()
-                                        .matches("[0-9a-f]{64}"));
+                .containsExactlyInAnyOrderEntriesOf(
+                        Map.of(
+                                "crypto.js",
+                                "a7cdbe4fc286475d1279edfdf4ef5a2377949f795b2ec83a45514acc23539f17",
+                                "index.js",
+                                "05b3ea7b00d29af72e2ccb7f0770e4b78a99835c8cad4af175315e9d3319e1bc",
+                                "instrumentation.js",
+                                "73c7ab9f4b89dd30036ae361ec5ec3992dc8600508009e49f935a782408fb970",
+                                "prng.js",
+                                "62603a23e7d6c6538e65cea26b9e8abd5eaac967f73968de2734dd3c03cb0ed2",
+                                "rsw.js",
+                                "200f91cd42677377d214e48b0cd476dfe599fdae93f13e8dbea5631617ca1477"));
     }
 
     private static String oracleReason(Map<String, @Nullable Object> fixture) {

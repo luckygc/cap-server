@@ -172,7 +172,9 @@ instrumentation 类失败在核心 API 中的 `instrError` 为 `true`，Web adap
 生成器只从当前目录的 `node_modules` 加载官方 `capjs-core@0.1.1`，不使用本地
 JavaScript 协议重写。它从 `package-lock.json` 读取并验证 npm version、resolved URL 和
 integrity，这三者是 fixture 的 artifact 身份；同时计算实际安装的五个协议源文件
-SHA-256 用于审计和重生比对。`semanticReferenceCommit=f9ffadb` 只说明已经对照过的
+SHA-256，并在生成前逐一与代码中固定的官方 npm artifact 解包摘要比较；任一文件被篡改都立即失败。
+这些固定 SHA-256 只对应 npm integrity 指定的 artifact 文件。
+`semanticReferenceCommit=f9ffadb` 只说明已经对照过的
 语义参考，文件摘要不被声称为该 commit 的身份证明。nonce、IV 和
 instrumentation 脚本保持真实随机，所以重生不要求逐字节相等；
 Java 测试会对每次新生成的 token 执行验签、解密和协议兑换。完整复核命令为：
@@ -183,6 +185,7 @@ tmp=$(mktemp -d)
 cd "$tmp"
 npm init -y
 npm install capjs-core@0.1.1
+node "$repo/tools/fixtures/test-generate-capjs-core-fixtures.mjs"
 node "$repo/tools/fixtures/generate-capjs-core-fixtures.mjs" --output "$tmp/fixtures"
 cd "$repo"
 mise exec maven -- mvn -Dcap.fixture.dir="$tmp/fixtures" -Dtest='*CompatibilityTest' test

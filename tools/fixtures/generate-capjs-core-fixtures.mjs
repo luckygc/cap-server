@@ -15,6 +15,15 @@ const SECRET = "0123456789abcdef0123456789abcdef";
 const NOW = 4_102_444_800_000;
 const TTL_MS = 600_000;
 const SOURCE_NAMES = ["crypto.js", "index.js", "instrumentation.js", "prng.js", "rsw.js"];
+// These digests identify files unpacked from the official npm artifact above. They do not prove
+// that the npm tarball corresponds to SEMANTIC_REFERENCE_COMMIT.
+const NPM_ARTIFACT_SOURCE_SHA256 = {
+  "crypto.js": "a7cdbe4fc286475d1279edfdf4ef5a2377949f795b2ec83a45514acc23539f17",
+  "index.js": "05b3ea7b00d29af72e2ccb7f0770e4b78a99835c8cad4af175315e9d3319e1bc",
+  "instrumentation.js": "73c7ab9f4b89dd30036ae361ec5ec3992dc8600508009e49f935a782408fb970",
+  "prng.js": "62603a23e7d6c6538e65cea26b9e8abd5eaac967f73968de2734dd3c03cb0ed2",
+  "rsw.js": "200f91cd42677377d214e48b0cd476dfe599fdae93f13e8dbea5631617ca1477",
+};
 
 const args = process.argv.slice(2);
 if (args.length !== 2 || args[0] !== "--output") {
@@ -50,6 +59,13 @@ const filesSha256 = Object.fromEntries(
     ]),
   ),
 );
+for (const name of SOURCE_NAMES) {
+  if (filesSha256[name] !== NPM_ARTIFACT_SOURCE_SHA256[name]) {
+    throw new Error(
+      `${PACKAGE}@${VERSION} src/${name} does not match official npm artifact ${NPM_INTEGRITY}`,
+    );
+  }
+}
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
