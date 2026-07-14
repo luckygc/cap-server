@@ -56,7 +56,9 @@ records 当作兼容 DTO：Web wire 使用 snake_case，Java API 使用 camelCas
 Web 请求经 adapter 后对应
 `RedeemRequest(token, solutions, instr, instrBlocked, instrTimeout)`：
 
-- Format 1：`solutions` 是与 `c` 等长的整数数组；启用 instrumentation 时，顶层 `instr` 包含
+- Format 1：`solutions` 是与 `c` 等长的 JSON Number 数组；与上游 `JSON.parse` 一样，所有值先按
+  binary64 舍入，再用 JavaScript `String(number)` 文本参与哈希，因此也接受有限小数、指数形式和
+  超出安全整数范围的值；启用 instrumentation 时，顶层 `instr` 包含
   `i`、`state`、可空 `ts`，顶层 Web 字段 `instr_blocked` / `instr_timeout` 传递浏览器信号。
 - Format 2：`solutions` 与 `challenges` 逐项对齐。`sha256-pow` 使用 `{ "nonce": number|string }`，
   RSW 使用 `{ "y": "<hex>" }`，instrumentation 使用
@@ -101,8 +103,10 @@ Format 2 payload：
 ### Format 1 SHA-256 PoW
 
 salt 和 target 不直接放入 token。客户端按上游 FNV-1a resume 与 xorshift PRNG，从完整 JWT 和
-challenge 序号派生它们，然后寻找整数 `nonce`，使 `sha256(salt + decimal(nonce))` 的小写 hex
-以 target 开头。参数范围为 `1<=c<=1000`、`1<=s<=256`、`1<=d<=16`。
+challenge 序号派生它们，然后寻找有限 JavaScript `Number`，使
+`sha256(salt + String(number))` 的小写 hex 以 target 开头。Java API 收到 `BigDecimal` 或
+`BigInteger` 时也先模拟 `JSON.parse` 的 binary64 舍入。参数范围为 `1<=c<=1000`、
+`1<=s<=256`、`1<=d<=16`。
 
 ### Format 2 SHA-256 PoW
 

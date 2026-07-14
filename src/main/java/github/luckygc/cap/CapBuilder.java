@@ -90,6 +90,7 @@ public final class CapBuilder {
         return this;
     }
 
+    /** 设置本机 nonce cache 的硬容量；TTL 内签名不会被淘汰，容量满时兑换返回 {@code nonce_store_error}。 */
     public CapBuilder nonceCacheMaximumSize(long maximumSize) {
         this.nonceCacheMaximumSize = maximumSize;
         return this;

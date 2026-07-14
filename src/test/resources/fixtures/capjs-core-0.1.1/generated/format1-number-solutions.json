@@ -1,0 +1,72 @@
+{
+  "generator": "tools/fixtures/generate-capjs-core-fixtures.mjs",
+  "kind": "format1-number-solutions",
+  "now": 4102444800000,
+  "payload": {
+    "c": 3,
+    "d": 2,
+    "exp": 4102445400000,
+    "iat": 4102444800000,
+    "n": "000102030405060708090a0b0c0d0e0f101112131415161718",
+    "s": 8
+  },
+  "redeemed": {
+    "expires": 4102446000000,
+    "iat": 4102444800000,
+    "scope": null,
+    "success": true,
+    "token": "format1-number-oracle"
+  },
+  "request": {
+    "solutions": [
+      513.5,
+      1.0000000000000022e+21,
+      9007199254741000
+    ],
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoiMDAwMTAyMDMwNDA1MDYwNzA4MDkwYTBiMGMwZDBlMGYxMDExMTIxMzE0MTUxNjE3MTgiLCJjIjozLCJzIjo4LCJkIjoyLCJleHAiOjQxMDI0NDU0MDAwMDAsImlhdCI6NDEwMjQ0NDgwMDAwMH0.PY5i_61sjqvNirAo7Do6ZBwSe2lIjiLUCQEfaV6RZ84"
+  },
+  "schema": "https://github.com/luckygc/cap-server/fixtures/capjs-core-v1",
+  "schemaVersion": 1,
+  "secret": "0123456789abcdef0123456789abcdef",
+  "source": {
+    "npm": {
+      "filesSha256": {
+        "crypto.js": "a7cdbe4fc286475d1279edfdf4ef5a2377949f795b2ec83a45514acc23539f17",
+        "index.js": "05b3ea7b00d29af72e2ccb7f0770e4b78a99835c8cad4af175315e9d3319e1bc",
+        "instrumentation.js": "73c7ab9f4b89dd30036ae361ec5ec3992dc8600508009e49f935a782408fb970",
+        "prng.js": "62603a23e7d6c6538e65cea26b9e8abd5eaac967f73968de2734dd3c03cb0ed2",
+        "rsw.js": "200f91cd42677377d214e48b0cd476dfe599fdae93f13e8dbea5631617ca1477"
+      },
+      "integrity": "sha512-I5ZAsG6avdMFs3RxEbNFj9VggWMV6JEUIUvKFCOLR2Q9plxrEe+i4515ejtkCP6nkyE8b75L81ygjYZKmugWMg==",
+      "resolved": "https://registry.npmjs.org/capjs-core/-/capjs-core-0.1.1.tgz",
+      "version": "0.1.1"
+    },
+    "package": "capjs-core",
+    "repository": "https://github.com/tiagozip/cap",
+    "semanticReferenceCommit": "f9ffadb"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoiMDAwMTAyMDMwNDA1MDYwNzA4MDkwYTBiMGMwZDBlMGYxMDExMTIxMzE0MTUxNjE3MTgiLCJjIjozLCJzIjo4LCJkIjoyLCJleHAiOjQxMDI0NDU0MDAwMDAsImlhdCI6NDEwMjQ0NDgwMDAwMH0.PY5i_61sjqvNirAo7Do6ZBwSe2lIjiLUCQEfaV6RZ84",
+  "vectors": {
+    "exponent": {
+      "jsText": "1.0000000000000022e+21",
+      "salt": "1e5c2ae1",
+      "sourceDecimal": "1000000000000002228224",
+      "target": "b5",
+      "value": 1.0000000000000022e+21
+    },
+    "fractional": {
+      "jsText": "513.5",
+      "salt": "41de715c",
+      "sourceDecimal": "513.5",
+      "target": "27",
+      "value": 513.5
+    },
+    "largeRounded": {
+      "jsText": "9007199254741000",
+      "salt": "f3426c9b",
+      "sourceDecimal": "9007199254740999",
+      "target": "a3",
+      "value": 9007199254741000
+    }
+  }
+}

@@ -219,7 +219,7 @@ public final class Format1Protocol {
         }
         String[] solutionStrings = new String[expectedCount];
         for (int index = 0; index < expectedCount; index++) {
-            @Nullable String solution = integerText(solutions.get(index));
+            @Nullable String solution = numberText(solutions.get(index));
             if (solution == null) {
                 return failure("invalid_solutions");
             }
@@ -293,23 +293,11 @@ public final class Format1Protocol {
         return null;
     }
 
-    private static @Nullable String integerText(@Nullable Object value) {
-        if (value instanceof Byte number) {
-            return number.toString();
+    private static @Nullable String numberText(@Nullable Object value) {
+        if (!(value instanceof Number number) || !Double.isFinite(number.doubleValue())) {
+            return null;
         }
-        if (value instanceof Short number) {
-            return number.toString();
-        }
-        if (value instanceof Integer number) {
-            return number.toString();
-        }
-        if (value instanceof Long number) {
-            return number.toString();
-        }
-        if (value instanceof BigInteger number) {
-            return number.toString();
-        }
-        return null;
+        return Format2Protocol.jsNumberToString(number);
     }
 
     private static void validateParameters(int count, int size, int difficulty) {

@@ -2,6 +2,7 @@ package github.luckygc.cap.internal.replay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.benmanes.caffeine.cache.Ticker;
 import java.time.Duration;
@@ -75,10 +76,80 @@ class CaffeineNonceConsumerTest {
 
         assertThat(consumer.consume("one", Duration.ofHours(1))).isTrue();
         assertThat(consumer.consume("two", Duration.ofHours(1))).isTrue();
-        assertThat(consumer.consume("three", Duration.ofHours(1))).isTrue();
-        consumer.cleanUp();
+        assertThatThrownBy(() -> consumer.consume("three", Duration.ofHours(1)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(consumer.consume("one", Duration.ofHours(1))).isFalse();
+        assertThat(consumer.estimatedSize()).isEqualTo(2);
+    }
 
-        assertThat(consumer.estimatedSize()).isLessThanOrEqualTo(2);
+    @Test
+    @DisplayName("容量压力不得淘汰 TTL 内已消费签名")
+    void neverEvictsLiveConsumedSignatures() throws Exception {
+        CaffeineNonceConsumer consumer = new CaffeineNonceConsumer(2, new FakeTicker());
+
+        assertThat(consumer.consume("protected", Duration.ofHours(1))).isTrue();
+        assertThat(consumer.consume("second", Duration.ofHours(1))).isTrue();
+        int rejected = 0;
+        for (int index = 0; index < 1_000; index++) {
+            String signature = "overflow-" + index;
+            try {
+                consumer.consume(signature, Duration.ofHours(1));
+            } catch (IllegalStateException exception) {
+                rejected++;
+            }
+        }
+
+        assertThat(consumer.consume("protected", Duration.ofHours(1))).isFalse();
+        assertThat(rejected).isEqualTo(1_000);
+    }
+
+    @Test
+    @DisplayName("TTL 到期清理后容量可再次准入")
+    void admitsAfterExpiredCapacityIsCleaned() throws Exception {
+        FakeTicker ticker = new FakeTicker();
+        CaffeineNonceConsumer consumer = new CaffeineNonceConsumer(1, ticker);
+
+        assertThat(consumer.consume("old", Duration.ofSeconds(1))).isTrue();
+        ticker.advance(Duration.ofSeconds(1));
+
+        assertThat(consumer.consume("new", Duration.ofHours(1))).isTrue();
+        assertThat(consumer.consume("new", Duration.ofHours(1))).isFalse();
+    }
+
+    @Test
+    @DisplayName("并发不同签名不得超过硬容量")
+    void concurrentAdmissionsRespectHardCapacity() throws Exception {
+        int capacity = 8;
+        CaffeineNonceConsumer consumer = new CaffeineNonceConsumer(capacity, new FakeTicker());
+        ExecutorService executor = Executors.newFixedThreadPool(32);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Boolean>> results = new ArrayList<>();
+            for (int index = 0; index < 64; index++) {
+                String signature = "signature-" + index;
+                results.add(
+                        executor.submit(
+                                () -> {
+                                    start.await();
+                                    try {
+                                        return consumer.consume(signature, Duration.ofHours(1));
+                                    } catch (IllegalStateException exception) {
+                                        return false;
+                                    }
+                                }));
+            }
+            start.countDown();
+            long admitted = 0;
+            for (Future<Boolean> result : results) {
+                if (result.get(10, TimeUnit.SECONDS)) {
+                    admitted++;
+                }
+            }
+            assertThat(admitted).isEqualTo(capacity);
+            assertThat(consumer.estimatedSize()).isEqualTo(capacity);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

@@ -3,6 +3,7 @@ package github.luckygc.cap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -17,6 +18,9 @@ public final class ChallengeOptions {
 
     private static final Duration DEFAULT_TTL = Duration.ofMinutes(10);
     private static final Duration MAX_TTL = Duration.ofHours(24);
+    private static final int MAX_JSON_DEPTH = 32;
+    private static final int MAX_JSON_NODES = 10_000;
+    private static final int MAX_JSON_STRING_LENGTH = 16_384;
     private static final ChallengeOptions DEFAULTS = new Builder().build();
 
     private final @Nullable String scope;
@@ -58,6 +62,7 @@ public final class ChallengeOptions {
     }
 
     static Map<String, @Nullable Object> immutableMap(Map<?, @Nullable ?> source) {
+        validateJsonValue(source);
         return immutableMap(source, newIdentitySet());
     }
 
@@ -81,6 +86,7 @@ public final class ChallengeOptions {
     }
 
     static List<@Nullable Object> immutableList(List<@Nullable ?> source) {
+        validateJsonValue(source);
         return immutableList(source, newIdentitySet());
     }
 
@@ -134,6 +140,89 @@ public final class ChallengeOptions {
         throw new IllegalArgumentException("map/list values must be immutable JSON values");
     }
 
+    private static void validateJsonValue(Object root) {
+        ArrayDeque<JsonFrame> pending = new ArrayDeque<>();
+        Set<Object> visiting = newIdentitySet();
+        pending.push(new JsonFrame(root, 1, false));
+        int nodes = 0;
+        while (!pending.isEmpty()) {
+            JsonFrame frame = pending.pop();
+            @Nullable Object value = frame.value();
+            if (frame.exiting()) {
+                visiting.remove(value);
+                continue;
+            }
+            if (++nodes > MAX_JSON_NODES) {
+                throw new IllegalArgumentException("协议 JSON 节点过多");
+            }
+            if (value instanceof Map<?, ?> map) {
+                checkContainer(frame.depth(), map.size(), map, visiting);
+                pending.push(new JsonFrame(map, frame.depth(), true));
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    Object key = Objects.requireNonNull(entry.getKey(), "map key");
+                    if (!(key instanceof String stringKey)) {
+                        throw new IllegalArgumentException("map keys must be strings");
+                    }
+                    checkJsonString(stringKey);
+                    pending.push(new JsonFrame(entry.getValue(), frame.depth() + 1, false));
+                }
+            } else if (value instanceof List<?> list) {
+                checkContainer(frame.depth(), list.size(), list, visiting);
+                pending.push(new JsonFrame(list, frame.depth(), true));
+                for (int index = list.size() - 1; index >= 0; index--) {
+                    pending.push(new JsonFrame(list.get(index), frame.depth() + 1, false));
+                }
+            } else {
+                validateJsonLeaf(value);
+            }
+        }
+    }
+
+    private static void checkContainer(
+            int depth, int size, Object container, Set<Object> visiting) {
+        if (depth > MAX_JSON_DEPTH) {
+            throw new IllegalArgumentException("协议 JSON 嵌套过深");
+        }
+        if (size > MAX_JSON_NODES) {
+            throw new IllegalArgumentException("协议 JSON 节点过多");
+        }
+        enterContainer(container, visiting);
+    }
+
+    private static void validateJsonLeaf(@Nullable Object value) {
+        if (value == null || value instanceof Boolean) {
+            return;
+        }
+        if (value instanceof String string) {
+            checkJsonString(string);
+            return;
+        }
+        if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long
+                || value instanceof BigInteger
+                || value instanceof BigDecimal) {
+            return;
+        }
+        if (value instanceof Float floatValue && Float.isFinite(floatValue)) {
+            return;
+        }
+        if (value instanceof Double doubleValue && Double.isFinite(doubleValue)) {
+            return;
+        }
+        if (value instanceof Number) {
+            throw new IllegalArgumentException("JSON floating-point values must be finite");
+        }
+        throw new IllegalArgumentException("map/list values must be immutable JSON values");
+    }
+
+    private static void checkJsonString(String value) {
+        if (value.length() > MAX_JSON_STRING_LENGTH) {
+            throw new IllegalArgumentException("协议 JSON 字符串过长");
+        }
+    }
+
     private static Set<Object> newIdentitySet() {
         return Collections.newSetFromMap(new IdentityHashMap<>());
     }
@@ -143,6 +232,8 @@ public final class ChallengeOptions {
             throw new IllegalArgumentException("map/list values must not contain cycles");
         }
     }
+
+    private record JsonFrame(@Nullable Object value, int depth, boolean exiting) {}
 
     public static final class Builder {
 

@@ -3,9 +3,12 @@ package github.luckygc.cap.internal.replay;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Ticker;
 import github.luckygc.cap.NonceConsumer;
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /** 使用本机 Caffeine 缓存原子消费 JWT 签名。 */
@@ -20,6 +23,9 @@ public final class CaffeineNonceConsumer implements NonceConsumer {
     private static final long MAXIMUM_TTL_NANOS = MAXIMUM_TTL.toNanos();
 
     private final Cache<String, Long> cache;
+    private final Map<String, Long> deadlines = new LinkedHashMap<>();
+    private final long maximumSize;
+    private final Ticker ticker;
 
     public CaffeineNonceConsumer() {
         this(DEFAULT_MAXIMUM_SIZE, Ticker.systemTicker());
@@ -33,29 +39,47 @@ public final class CaffeineNonceConsumer implements NonceConsumer {
         if (maximumSize < MINIMUM_MAXIMUM_SIZE || maximumSize > MAXIMUM_MAXIMUM_SIZE) {
             throw new IllegalArgumentException("maximumSize 必须在 1 到 10000000 之间");
         }
-        Objects.requireNonNull(ticker, "ticker");
+        this.ticker = Objects.requireNonNull(ticker, "ticker");
+        this.maximumSize = maximumSize;
         cache =
                 Caffeine.newBuilder()
-                        .maximumSize(maximumSize)
+                        .executor(Runnable::run)
                         .ticker(ticker)
                         .expireAfter(new PerEntryExpiry())
+                        .removalListener(this::onRemoval)
                         .build();
     }
 
     @Override
-    public boolean consume(String signatureHex, Duration ttl) {
+    public synchronized boolean consume(String signatureHex, Duration ttl) {
         Objects.requireNonNull(signatureHex, "signatureHex");
         Objects.requireNonNull(ttl, "ttl");
         long ttlNanos = clampTtl(ttl);
-        return cache.asMap().putIfAbsent(signatureHex, ttlNanos) == null;
+        long now = ticker.read();
+        cache.cleanUp();
+        deadlines.entrySet().removeIf(entry -> entry.getValue() - now <= 0);
+        if (deadlines.containsKey(signatureHex)) {
+            return false;
+        }
+        if (deadlines.size() >= maximumSize) {
+            throw new IllegalStateException("nonce cache capacity exhausted");
+        }
+        long deadline = now + ttlNanos;
+        deadlines.put(signatureHex, deadline);
+        cache.put(signatureHex, deadline);
+        return true;
     }
 
-    long estimatedSize() {
-        return cache.estimatedSize();
+    synchronized long estimatedSize() {
+        return deadlines.size();
     }
 
     void cleanUp() {
         cache.cleanUp();
+    }
+
+    private synchronized void onRemoval(String key, Long deadlineNanos, RemovalCause cause) {
+        deadlines.remove(key, deadlineNanos);
     }
 
     private static long clampTtl(Duration ttl) {
@@ -71,8 +95,8 @@ public final class CaffeineNonceConsumer implements NonceConsumer {
     private static final class PerEntryExpiry implements Expiry<String, Long> {
 
         @Override
-        public long expireAfterCreate(String key, Long ttlNanos, long currentTime) {
-            return ttlNanos;
+        public long expireAfterCreate(String key, Long deadlineNanos, long currentTime) {
+            return Math.max(0, deadlineNanos - currentTime);
         }
 
         @Override

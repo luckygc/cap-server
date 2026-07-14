@@ -165,7 +165,9 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
 
 ## 防重放与集群部署
 
-默认 Caffeine nonce cache 只覆盖当前 JVM。多实例部署必须用共享存储实现原子
+默认 Caffeine nonce cache 只覆盖当前 JVM，并把 `nonceCacheMaximumSize(...)` 作为硬容量：
+TTL 内的已消费签名不会因容量压力被淘汰；容量满时兑换 fail closed，返回
+`nonce_store_error`。多实例部署必须用共享存储实现原子
 “不存在则写入并设置 TTL”，并完全替代本机缓存：
 
 ```java

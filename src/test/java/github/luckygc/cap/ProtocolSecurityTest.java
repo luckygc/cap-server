@@ -110,13 +110,13 @@ class ProtocolSecurityTest {
     }
 
     @Test
-    @DisplayName("Format 1 拒绝非整数 solution")
-    void rejectsNonIntegerFormat1Solution() {
+    @DisplayName("Format 1 拒绝非 Number solution")
+    void rejectsNonNumberFormat1Solution() {
         Cap cap = format1Cap();
         ChallengeResponse.Format1 challenge = (ChallengeResponse.Format1) cap.createChallenge();
 
         assertFailure(
-                cap.redeem(new RedeemRequest(challenge.token(), List.of(1.0), null, false, false)),
+                cap.redeem(new RedeemRequest(challenge.token(), List.of("1"), null, false, false)),
                 "invalid_solutions");
     }
 

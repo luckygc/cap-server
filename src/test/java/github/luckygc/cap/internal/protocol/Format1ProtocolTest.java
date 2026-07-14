@@ -11,6 +11,7 @@ import github.luckygc.cap.internal.json.ProtocolJsonCodec;
 import github.luckygc.cap.utils.RandomUtil;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -199,7 +200,7 @@ class Format1ProtocolTest {
     }
 
     @Test
-    @DisplayName("拒绝 solution 数量与非整数类型错误")
+    @DisplayName("拒绝 solution 数量错误并接受所有有限 Number 类型")
     void rejectsInvalidSolutionShape() {
         Format1Protocol protocol = protocol(2, 8, 2);
         String token = validToken(2, 8, 2);
@@ -208,7 +209,7 @@ class Format1ProtocolTest {
                 protocol.validateComponents(true, token, List.of(1), null), "invalid_solutions");
         assertFailure(
                 protocol.validateComponents(true, token, List.of(1, 1.0), null),
-                "invalid_solutions");
+                "invalid_solution");
     }
 
     @Test
@@ -234,6 +235,46 @@ class Format1ProtocolTest {
                                 1_735_689_600_000L,
                                 4_102_444_800_000L,
                                 (String) fixture.get("signatureHex")));
+    }
+
+    @Test
+    @DisplayName("Format 1 按 JavaScript Number 字符串验证小数解答")
+    void acceptsFractionalJavaScriptNumberSolution() {
+        Format1Protocol protocol = protocol(1, 4, 1);
+        String token = validToken(1, 4, 1);
+        BigDecimal solution = fractionalSolution(token, 4, 1);
+
+        Format1Protocol.ValidationResult result =
+                protocol.validateComponents(true, token, List.of(solution), null);
+
+        assertThat(result).isInstanceOf(Format1Protocol.Validated.class);
+    }
+
+    @Test
+    @DisplayName("Format 1 先按 binary64 舍入再使用 JavaScript Number 字符串")
+    void roundsArbitraryPrecisionNumbersLikeJsonParse() {
+        Format1Protocol protocol = protocol(1, 4, 1);
+        String token = validToken(1, 4, 1);
+        BigInteger solution = largeRoundedSolution(token, 4, 1);
+
+        Format1Protocol.ValidationResult result =
+                protocol.validateComponents(true, token, List.of(solution), null);
+
+        assertThat(result).isInstanceOf(Format1Protocol.Validated.class);
+    }
+
+    @Test
+    @DisplayName("Format 1 拒绝非有限 Number")
+    void rejectsNonFiniteNumbers() {
+        Format1Protocol protocol = protocol(1, 4, 1);
+        String token = validToken(1, 4, 1);
+
+        assertFailure(
+                protocol.validateComponents(true, token, List.of(Double.NaN), null),
+                "invalid_solutions");
+        assertFailure(
+                protocol.validateComponents(true, token, List.of(Double.POSITIVE_INFINITY), null),
+                "invalid_solutions");
     }
 
     @Test
@@ -304,6 +345,45 @@ class Format1ProtocolTest {
                         future(),
                         "iat",
                         now()));
+    }
+
+    private static BigDecimal fractionalSolution(String token, int size, int difficulty) {
+        String salt = salt(token, size);
+        String target = target(token, difficulty);
+        for (long integer = 0; integer < 1_000_000; integer++) {
+            BigDecimal candidate = new BigDecimal(integer + ".5");
+            if (Format1Protocol.sha256Hex(salt + candidate).startsWith(target)) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("fractional solution not found");
+    }
+
+    private static BigInteger largeRoundedSolution(String token, int size, int difficulty) {
+        String salt = salt(token, size);
+        String target = target(token, difficulty);
+        BigInteger base = BigInteger.valueOf(9_007_199_254_740_992L);
+        for (long offset = 1; offset < 1_000_000; offset += 2) {
+            BigInteger candidate = base.add(BigInteger.valueOf(offset));
+            String jsText = Format2Protocol.jsNumberToString(candidate);
+            if (Format1Protocol.sha256Hex(salt + jsText).startsWith(target)) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("large rounded solution not found");
+    }
+
+    private static String salt(String token, int size) {
+        int tokenState = RandomUtil.fnv1a(token);
+        int saltState = RandomUtil.fnv1aResume(tokenState, "1");
+        return RandomUtil.prngFromHash(saltState, size);
+    }
+
+    private static String target(String token, int difficulty) {
+        int tokenState = RandomUtil.fnv1a(token);
+        int saltState = RandomUtil.fnv1aResume(tokenState, "1");
+        int targetState = RandomUtil.fnv1aResume(saltState, "d");
+        return RandomUtil.prngFromHash(targetState, difficulty);
     }
 
     private static String sign(Map<String, @Nullable Object> payload) {

@@ -48,6 +48,18 @@ class CapIntegrationTest {
     }
 
     @Test
+    @DisplayName("本机 nonce 容量满时 fail closed 为 nonce_store_error")
+    void mapsLocalNonceCapacityExhaustionToStoreError() {
+        Cap cap = Cap.builder(SECRET).format1(1, 4, 1).nonceCacheMaximumSize(1).build();
+        RedeemRequest first = solve((ChallengeResponse.Format1) cap.createChallenge());
+        RedeemRequest second = solve((ChallengeResponse.Format1) cap.createChallenge());
+
+        assertThat(cap.redeem(first)).isInstanceOf(RedeemResult.Success.class);
+        assertFailure(cap.redeem(second), "nonce_store_error");
+        assertFailure(cap.redeem(first), "already_redeemed");
+    }
+
+    @Test
     @DisplayName("challenge 与 redeem 默认配置和显式 options 遵循完整替换")
     void usesConfiguredDefaultsAndExplicitOptions() {
         ChallengeOptions configuredChallenge =

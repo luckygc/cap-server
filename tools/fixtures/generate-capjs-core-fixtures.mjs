@@ -139,6 +139,26 @@ function format1Solutions(token, challenge) {
   });
 }
 
+function format1Derivation(token, index, size, difficulty) {
+  const state = prng.fnv1a(token);
+  const saltState = prng.fnv1aResume(state, String(index + 1));
+  const targetState = prng.fnv1aResume(saltState, "d");
+  return {
+    salt: prng.prngFromHash(saltState, size),
+    target: prng.prngFromHash(targetState, difficulty),
+  };
+}
+
+function solveNumber(index, token, size, difficulty, candidates) {
+  const { salt, target } = format1Derivation(token, index, size, difficulty);
+  for (const candidate of candidates()) {
+    if (crypto.sha256Hex(`${salt}${candidate.value}`).startsWith(target)) {
+      return { ...candidate, jsText: String(candidate.value), salt, target };
+    }
+  }
+  throw new Error(`Format 1 Number solver exhausted at index ${index}`);
+}
+
 function instrumentationOutput(metadata) {
   return {
     i: metadata.id,
@@ -183,6 +203,55 @@ await writeFixture(
     request: format1Request,
     secret: SECRET,
     tokenPayload: tokenPayload(format1Challenge.token),
+  }),
+);
+
+const numberPayload = {
+  n: "000102030405060708090a0b0c0d0e0f101112131415161718",
+  c: 3,
+  s: 8,
+  d: 2,
+  exp: NOW + TTL_MS,
+  iat: NOW,
+};
+const numberToken = crypto.jwtSign(numberPayload, SECRET);
+const fractional = solveNumber(0, numberToken, 8, 2, function* () {
+  for (let integer = 0; integer < 1_000_000; integer++) {
+    yield { sourceDecimal: `${integer}.5`, value: integer + 0.5 };
+  }
+});
+const exponent = solveNumber(1, numberToken, 8, 2, function* () {
+  for (let offset = 0; offset < 1_000_000; offset++) {
+    const sourceDecimal = (10n ** 21n + BigInt(offset) * 131072n).toString();
+    yield { sourceDecimal, value: Number(sourceDecimal) };
+  }
+});
+const largeRounded = solveNumber(2, numberToken, 8, 2, function* () {
+  for (let offset = 1n; offset < 1_000_000n; offset += 2n) {
+    const sourceDecimal = (9007199254740992n + offset).toString();
+    yield { sourceDecimal, value: Number(sourceDecimal) };
+  }
+});
+const numberRequest = {
+  token: numberToken,
+  solutions: [fractional.value, exponent.value, largeRounded.value],
+};
+const numberRedeemed = await core.validateChallenge(SECRET, numberRequest, {
+  signToken: () => "format1-number-oracle",
+});
+if (!numberRedeemed.success) {
+  throw new Error(`Format 1 Number oracle failed: ${numberRedeemed.reason}`);
+}
+await writeFixture(
+  "format1-number-solutions.json",
+  envelope("format1-number-solutions", {
+    now: NOW,
+    payload: numberPayload,
+    redeemed: numberRedeemed,
+    request: numberRequest,
+    secret: SECRET,
+    token: numberToken,
+    vectors: { exponent, fractional, largeRounded },
   }),
 );
 
@@ -360,5 +429,5 @@ await writeFixture(
 );
 
 process.stdout.write(
-  `${JSON.stringify({ output: outputDirectory, package: `${PACKAGE}@${VERSION}`, fixtures: 4 })}\n`,
+  `${JSON.stringify({ output: outputDirectory, package: `${PACKAGE}@${VERSION}`, fixtures: 5 })}\n`,
 );

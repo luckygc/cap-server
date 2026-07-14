@@ -176,6 +176,49 @@ class CapApiTest {
     }
 
     @Test
+    @DisplayName("公开 JSON 模型受控拒绝极深容器")
+    void publicJsonModelsRejectExcessiveDepthWithoutStackOverflow() {
+        Object nested = "leaf";
+        for (int index = 0; index < 5_000; index++) {
+            List<Object> parent = new ArrayList<>();
+            parent.add(nested);
+            nested = parent;
+        }
+        Map<String, Object> extra = Map.of("nested", nested);
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> ChallengeOptions.builder().extra(extra))
+                .withMessageContaining("嵌套");
+    }
+
+    @Test
+    @DisplayName("公开 JSON 模型受控拒绝超宽容器")
+    void publicJsonModelsRejectExcessiveWidth() {
+        List<Object> wide = new ArrayList<>();
+        for (int index = 0; index < 10_001; index++) {
+            wide.add(index);
+        }
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RedeemRequest("token", wide, null, false, false))
+                .withMessageContaining("节点");
+    }
+
+    @Test
+    @DisplayName("公开 JSON 模型在受限嵌套内仍执行深复制")
+    void publicJsonModelsStillDeepCopyBoundedValues() {
+        List<Object> leaf = new ArrayList<>(List.of("before"));
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("leaf", leaf);
+
+        RedeemRequest.InstrumentationResult result =
+                new RedeemRequest.InstrumentationResult("id", state, null);
+        leaf.add("after");
+
+        assertThat(result.state().get("leaf")).isEqualTo(List.of("before"));
+    }
+
+    @Test
     @DisplayName("协议模型不可变且校验格式")
     void challengeModelsAreImmutableAndValidateFormat() {
         Map<String, Object> payload = new LinkedHashMap<>();

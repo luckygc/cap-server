@@ -8,6 +8,8 @@ import github.luckygc.cap.RedeemRequest;
 import github.luckygc.cap.internal.json.ProtocolJsonCodec;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -39,6 +41,30 @@ class CapjsCoreCompatibilityTest {
                 format1(fixture).validate(request(fixture, false), "login");
 
         assertThat(result).isInstanceOf(Format1Protocol.Validated.class);
+    }
+
+    @Test
+    @DisplayName("Java 接受上游验证的小数、指数与 binary64 舍入 Format 1 解答")
+    void acceptsGeneratedFormat1NumberSemantics() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture("format1-number-solutions.json");
+        assertMetadata(fixture, "format1-number-solutions");
+        @SuppressWarnings("unchecked")
+        Map<String, Map<String, @Nullable Object>> vectors =
+                (Map<String, Map<String, @Nullable Object>>) fixture.get("vectors");
+        List<@Nullable Object> solutions =
+                List.of(
+                        new BigDecimal((String) vectors.get("fractional").get("sourceDecimal")),
+                        new BigDecimal((String) vectors.get("exponent").get("sourceDecimal")),
+                        new BigInteger((String) vectors.get("largeRounded").get("sourceDecimal")));
+        RedeemRequest request =
+                new RedeemRequest((String) fixture.get("token"), solutions, null, false, false);
+
+        Format1Protocol.ValidationResult result = format1(fixture).validate(request, null);
+
+        assertThat(result).isInstanceOf(Format1Protocol.Validated.class);
+        assertThat(vectors.get("largeRounded"))
+                .containsEntry("sourceDecimal", "9007199254740999")
+                .containsEntry("jsText", "9007199254741000");
     }
 
     @Test
