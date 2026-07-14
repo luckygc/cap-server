@@ -15,9 +15,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * 兑换挑战测试类 演示如何测试兑换挑战功能
- */
+/** 兑换挑战测试类 演示如何测试兑换挑战功能 */
 public class RedeemChallengeTest {
 
     private CapManager capManager;
@@ -27,9 +25,7 @@ public class RedeemChallengeTest {
         capManager = new CapManagerBuilder().build();
     }
 
-    /**
-     * 测试成功兑换挑战
-     */
+    /** 测试成功兑换挑战 */
     @Test
     void testSuccessfulRedeemChallenge() {
         // 1. 创建挑战
@@ -59,15 +55,15 @@ public class RedeemChallengeTest {
         assertThat(secondValidateResult).isFalse();
     }
 
-    /**
-     * 测试保留 token 的校验方式
-     */
+    /** 测试保留 token 的校验方式 */
     @Test
     void testValidateCapTokenWithKeepToken() {
         ChallengeData challengeData = capManager.createChallenge();
-        List<Integer> solutions = generateCorrectSolutions(challengeData.token(), challengeData.challenge());
-        RedeemChallengeResponse response = capManager.redeemChallenge(
-                new RedeemChallengeRequest(challengeData.token(), solutions));
+        List<Integer> solutions =
+                generateCorrectSolutions(challengeData.token(), challengeData.challenge());
+        RedeemChallengeResponse response =
+                capManager.redeemChallenge(
+                        new RedeemChallengeRequest(challengeData.token(), solutions));
 
         assertThat(response.success()).isTrue();
         assertThat(capManager.validateCapToken(response.token(), true)).isTrue();
@@ -76,9 +72,7 @@ public class RedeemChallengeTest {
         assertThat(capManager.validateCapToken(response.token())).isFalse();
     }
 
-    /**
-     * 测试错误数量的解决方案
-     */
+    /** 测试错误数量的解决方案 */
     @Test
     void testInvalidSolutions() {
         // 1. 创建挑战
@@ -102,16 +96,15 @@ public class RedeemChallengeTest {
         assertThat(response.expires()).isNull();
     }
 
-    /**
-     * 测试错误数量的解决方案
-     */
+    /** 测试错误数量的解决方案 */
     @Test
     void testWrongSolutionsCount() {
         ChallengeData challengeData = capManager.createChallenge();
         List<Integer> wrongSolutions = List.of(1, 2, 3);
 
-        RedeemChallengeResponse response = capManager.redeemChallenge(
-                new RedeemChallengeRequest(challengeData.token(), wrongSolutions));
+        RedeemChallengeResponse response =
+                capManager.redeemChallenge(
+                        new RedeemChallengeRequest(challengeData.token(), wrongSolutions));
 
         assertThat(response.success()).isFalse();
         assertThat(response.message()).isEqualTo("无效解决方案");
@@ -119,15 +112,12 @@ public class RedeemChallengeTest {
         assertThat(response.expires()).isNull();
     }
 
-    /**
-     * 测试过期的挑战
-     */
+    /** 测试过期的挑战 */
     @Test
     void testExpiredChallenge() throws InterruptedException {
         // 1. 创建短期挑战（1毫秒过期）
-        CapManager customCapManager = new CapManagerBuilder()
-                .challenge(config -> config.expireMs(1L))
-                .build();
+        CapManager customCapManager =
+                new CapManagerBuilder().challenge(config -> config.expireMs(1L)).build();
         ChallengeData challengeData = customCapManager.createChallenge();
         String challengeToken = challengeData.token();
 
@@ -146,9 +136,7 @@ public class RedeemChallengeTest {
         assertThat(response.expires()).isNull();
     }
 
-    /**
-     * 测试无效的挑战token
-     */
+    /** 测试无效的挑战token */
     @Test
     void testInvalidChallengeToken() {
         // 1. 使用不存在的token
@@ -166,9 +154,7 @@ public class RedeemChallengeTest {
         assertThat(response.expires()).isNull();
     }
 
-    /**
-     * 测试空参数
-     */
+    /** 测试空参数 */
     @Test
     void testEmptyParameters() {
         // 1. 测试空token
@@ -190,18 +176,14 @@ public class RedeemChallengeTest {
         assertThat(response3.message()).isEqualTo("参数[redeemChallengeRequest.solutions]不能为空");
     }
 
-    /**
-     * 测试自定义挑战配置
-     */
+    /** 测试自定义挑战配置 */
     @Test
     void testCustomChallengeConfig() {
         // 1. 创建自定义配置的挑战
-        CapManager customCapManager = new CapManagerBuilder()
-                .challenge(config -> config
-                        .count(2)
-                        .size(4)
-                        .difficulty(2))
-                .build();
+        CapManager customCapManager =
+                new CapManagerBuilder()
+                        .challenge(config -> config.count(2).size(4).difficulty(2))
+                        .build();
 
         ChallengeData challengeData = customCapManager.createChallenge();
         String challengeToken = challengeData.token();
@@ -226,7 +208,7 @@ public class RedeemChallengeTest {
      * 生成正确的解决方案
      *
      * @param challengeToken 挑战token
-     * @param challenge      挑战配置
+     * @param challenge 挑战配置
      * @return 正确的解决方案列表
      */
     private List<Integer> generateCorrectSolutions(String challengeToken, Challenge challenge) {
@@ -234,7 +216,8 @@ public class RedeemChallengeTest {
 
         for (int i = 0; i < challenge.c(); i++) {
             String salt = RandomUtil.prng("%s%d".formatted(challengeToken, i + 1), challenge.s());
-            String target = RandomUtil.prng("%s%dd".formatted(challengeToken, i + 1), challenge.d());
+            String target =
+                    RandomUtil.prng("%s%dd".formatted(challengeToken, i + 1), challenge.d());
 
             // 暴力破解找到正确的nonce
             int solution = findCorrectNonce(salt, target);
@@ -247,17 +230,18 @@ public class RedeemChallengeTest {
     /**
      * 暴力破解找到正确的nonce
      *
-     * @param salt   盐值
+     * @param salt 盐值
      * @param target 目标前缀
      * @return 正确的nonce值
      */
     private int findCorrectNonce(String salt, String target) {
         return IntStream.range(0, 1000000) // 限制搜索范围，避免无限循环
-                .filter(nonce -> {
-                    String hash = DigestUtils.sha256Hex(salt + nonce);
-                    return hash.startsWith(target);
-                })
+                .filter(
+                        nonce -> {
+                            String hash = DigestUtils.sha256Hex(salt + nonce);
+                            return hash.startsWith(target);
+                        })
                 .findFirst()
                 .orElse(0); // 如果没找到，返回0（测试中会失败）
     }
-} 
+}

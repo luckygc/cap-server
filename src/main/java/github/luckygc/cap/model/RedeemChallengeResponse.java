@@ -5,7 +5,7 @@ package github.luckygc.cap.model;
  *
  * @param success 是否成功
  * @param message 错误消息
- * @param token   挑战成功后生成的唯一标识
+ * @param token 挑战成功后生成的唯一标识
  * @param expires 过期时间
  */
 public record RedeemChallengeResponse(boolean success, String message, String token, Long expires) {

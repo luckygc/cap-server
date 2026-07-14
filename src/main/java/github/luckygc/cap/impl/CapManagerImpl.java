@@ -30,7 +30,8 @@ public class CapManagerImpl implements CapManager {
     private final ChallengeConfig defaultChallengeConfig;
     private final CapTokenConfig capTokenConfig;
 
-    CapManagerImpl(CapStore capStore, ChallengeConfig challengeConfig, CapTokenConfig capTokenConfig) {
+    CapManagerImpl(
+            CapStore capStore, ChallengeConfig challengeConfig, CapTokenConfig capTokenConfig) {
         this.capStore = capStore;
 
         this.defaultChallengeConfig = challengeConfig;
@@ -47,7 +48,9 @@ public class CapManagerImpl implements CapManager {
     public ChallengeData createChallenge(ChallengeConfig challengeConfig) {
         capStore.cleanExpiredTokens();
 
-        String token = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CHALLENGE_TOKEN_BYTES_SIZE));
+        String token =
+                Hex.encodeHexString(
+                        RandomUtils.secureStrong().randomBytes(CHALLENGE_TOKEN_BYTES_SIZE));
         long expires = System.currentTimeMillis() + challengeConfig.getExpireMs();
         Challenge challenge = Challenge.of(challengeConfig);
         ChallengeData challengeData = new ChallengeData(token, challenge, expires);
@@ -60,17 +63,20 @@ public class CapManagerImpl implements CapManager {
     public RedeemChallengeResponse redeemChallenge(RedeemChallengeRequest redeemChallengeRequest) {
         String challengeToken = redeemChallengeRequest.token();
         if (StringUtils.isEmpty(challengeToken)) {
-            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "redeemChallengeRequest.token"));
+            return RedeemChallengeResponse.error(
+                    Messages.get("arg.notEmpty", "redeemChallengeRequest.token"));
         }
 
         List<Integer> solutions = redeemChallengeRequest.solutions();
         if (solutions == null || solutions.isEmpty()) {
-            return RedeemChallengeResponse.error(Messages.get("arg.notEmpty", "redeemChallengeRequest.solutions"));
+            return RedeemChallengeResponse.error(
+                    Messages.get("arg.notEmpty", "redeemChallengeRequest.solutions"));
         }
 
         capStore.cleanExpiredTokens();
 
-        Optional<ChallengeData> challengeDataOptional = capStore.findChallengeData(redeemChallengeRequest.token());
+        Optional<ChallengeData> challengeDataOptional =
+                capStore.findChallengeData(redeemChallengeRequest.token());
         if (challengeDataOptional.isEmpty()) {
             return RedeemChallengeResponse.error(Messages.get("challenge.expired"));
         }
@@ -88,21 +94,35 @@ public class CapManagerImpl implements CapManager {
             return RedeemChallengeResponse.error(Messages.get("solutions.invalid"));
         }
 
-        boolean isValid = IntStream.range(0, challenge.c()).allMatch(i -> {
-            String salt = RandomUtil.prng("%s%d".formatted(challengeToken, i + 1), challenge.s());
-            String target = RandomUtil.prng("%s%dd".formatted(challengeToken, i + 1), challenge.d());
-            int solution = solutions.get(i);
-            return DigestUtils.sha256Hex(salt + solution).startsWith(target);
-        });
+        boolean isValid =
+                IntStream.range(0, challenge.c())
+                        .allMatch(
+                                i -> {
+                                    String salt =
+                                            RandomUtil.prng(
+                                                    "%s%d".formatted(challengeToken, i + 1),
+                                                    challenge.s());
+                                    String target =
+                                            RandomUtil.prng(
+                                                    "%s%dd".formatted(challengeToken, i + 1),
+                                                    challenge.d());
+                                    int solution = solutions.get(i);
+                                    return DigestUtils.sha256Hex(salt + solution)
+                                            .startsWith(target);
+                                });
 
         if (!isValid) {
             return RedeemChallengeResponse.error(Messages.get("solutions.invalid"));
         }
 
-        String vertoken = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CAP_TOKEN_VER_TOKEN_BYTES_SIZE));
+        String vertoken =
+                Hex.encodeHexString(
+                        RandomUtils.secureStrong().randomBytes(CAP_TOKEN_VER_TOKEN_BYTES_SIZE));
         long expires = System.currentTimeMillis() + capTokenConfig.getExpireMs();
         String hash = DigestUtils.sha256Hex(vertoken);
-        String id = Hex.encodeHexString(RandomUtils.secureStrong().randomBytes(CAP_TOKEN_ID_BYTES_SIZE));
+        String id =
+                Hex.encodeHexString(
+                        RandomUtils.secureStrong().randomBytes(CAP_TOKEN_ID_BYTES_SIZE));
 
         CapToken actualToken = new CapToken(buildCapTokenString(id, hash), expires);
         capStore.saveCapToken(actualToken);
@@ -139,8 +159,9 @@ public class CapManagerImpl implements CapManager {
         String hash = DigestUtils.sha256Hex(idAndVertoken[1]);
         String actualToken = buildCapTokenString(id, hash);
 
-        Optional<CapToken> capTokenOptional = capStore.findCapToken(actualToken)
-                .filter(token -> token.expires() > System.currentTimeMillis());
+        Optional<CapToken> capTokenOptional =
+                capStore.findCapToken(actualToken)
+                        .filter(token -> token.expires() > System.currentTimeMillis());
         if (capTokenOptional.isEmpty()) {
             return false;
         }

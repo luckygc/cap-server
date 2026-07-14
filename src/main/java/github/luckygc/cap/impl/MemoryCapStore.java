@@ -21,19 +21,22 @@ public class MemoryCapStore implements CapStore {
             return;
         }
 
-        Thread thread = new Thread(() -> {
-            try {
-                challengeDataMap.values().stream()
-                        .filter(challengeData -> isExpired(challengeData.expires()))
-                        .forEach(this::deleteChallengeData);
+        Thread thread =
+                new Thread(
+                        () -> {
+                            try {
+                                challengeDataMap.values().stream()
+                                        .filter(challengeData -> isExpired(challengeData.expires()))
+                                        .forEach(this::deleteChallengeData);
 
-                capTokenMap.values().stream()
-                        .filter(challengeData -> isExpired(challengeData.expires()))
-                        .forEach(this::deleteCapToken);
-            } finally {
-                cleaningFlag.set(false);
-            }
-        }, "MemoryCapStore-clean-task");
+                                capTokenMap.values().stream()
+                                        .filter(challengeData -> isExpired(challengeData.expires()))
+                                        .forEach(this::deleteCapToken);
+                            } finally {
+                                cleaningFlag.set(false);
+                            }
+                        },
+                        "MemoryCapStore-clean-task");
         thread.setDaemon(true);
         thread.start();
     }

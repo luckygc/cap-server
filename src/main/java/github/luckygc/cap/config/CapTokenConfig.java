@@ -2,13 +2,10 @@ package github.luckygc.cap.config;
 
 public class CapTokenConfig {
 
-    /**
-     * 过期时间，毫秒.默认两分钟
-     */
+    /** 过期时间，毫秒.默认两分钟 */
     private long expireMs = 2 * 60 * 1000;
 
-    public CapTokenConfig() {
-    }
+    public CapTokenConfig() {}
 
     private CapTokenConfig(Builder builder) {
         if (builder.expireMs != null) {

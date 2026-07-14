@@ -1,5 +1,3 @@
 package github.luckygc.cap.model;
 
-public record CapToken(String token, Long expires) {
-
-}
+public record CapToken(String token, Long expires) {}

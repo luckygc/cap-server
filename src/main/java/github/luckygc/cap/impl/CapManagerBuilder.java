@@ -79,9 +79,7 @@ public class CapManagerBuilder {
         return new CapManagerImpl(capStore, challengeConfig, capTokenConfig);
     }
 
-    /**
-     * 挑战配置自定义器
-     */
+    /** 挑战配置自定义器 */
     public static class ChallengeConfigCustomizer {
 
         private final ChallengeConfig.Builder builder = new Builder();
@@ -131,9 +129,7 @@ public class CapManagerBuilder {
         }
     }
 
-    /**
-     * CAPTCHA 令牌配置自定义器
-     */
+    /** CAPTCHA 令牌配置自定义器 */
     public static class CapTokenConfigCustomizer {
 
         private final CapTokenConfig.Builder builder = new CapTokenConfig.Builder();

@@ -6,9 +6,7 @@ import java.util.Optional;
 
 public interface CapStore {
 
-    /**
-     * 清理过期ChallengeData和CapToken
-     */
+    /** 清理过期ChallengeData和CapToken */
     void cleanExpiredTokens();
 
     /**

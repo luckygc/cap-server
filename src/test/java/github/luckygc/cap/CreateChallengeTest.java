@@ -25,12 +25,14 @@ public class CreateChallengeTest {
 
         assertThat(challengeData.expires()).isBetween(startExpireTimeMillis, endExpireTimeMillis);
 
-        assertThat(challengeData.challenge()).isNotNull()
-                .satisfies(challenge -> {
-                    assertThat(challenge.c()).isEqualTo(challengeConfig.getCount());
-                    assertThat(challenge.s()).isEqualTo(challengeConfig.getSize());
-                    assertThat(challenge.d()).isEqualTo(challengeConfig.getDifficulty());
-                });
+        assertThat(challengeData.challenge())
+                .isNotNull()
+                .satisfies(
+                        challenge -> {
+                            assertThat(challenge.c()).isEqualTo(challengeConfig.getCount());
+                            assertThat(challenge.s()).isEqualTo(challengeConfig.getSize());
+                            assertThat(challenge.d()).isEqualTo(challengeConfig.getDifficulty());
+                        });
     }
 
     @Test
@@ -38,13 +40,14 @@ public class CreateChallengeTest {
     void testChallengeCountConfig() {
         int expectedChallengeCount = 5;
 
-        CapManager capManager = new CapManagerBuilder()
-                .challenge(c -> c.count(expectedChallengeCount))
-                .build();
+        CapManager capManager =
+                new CapManagerBuilder().challenge(c -> c.count(expectedChallengeCount)).build();
 
         ChallengeData challengeData = capManager.createChallenge();
-        assertThat(challengeData.challenge()).isNotNull()
-                .satisfies(challenge -> assertThat(challenge.c()).isEqualTo(expectedChallengeCount));
+        assertThat(challengeData.challenge())
+                .isNotNull()
+                .satisfies(
+                        challenge -> assertThat(challenge.c()).isEqualTo(expectedChallengeCount));
     }
 
     @Test
@@ -52,12 +55,14 @@ public class CreateChallengeTest {
     void testChallengeSizeConfig() {
         int expectedChallengeSize = 30;
 
-        CapManager capManager = new CapManagerBuilder()
-                .challenge(config -> config.size(expectedChallengeSize))
-                .build();
+        CapManager capManager =
+                new CapManagerBuilder()
+                        .challenge(config -> config.size(expectedChallengeSize))
+                        .build();
 
         ChallengeData challengeData = capManager.createChallenge();
-        assertThat(challengeData.challenge()).isNotNull()
+        assertThat(challengeData.challenge())
+                .isNotNull()
                 .satisfies(challenge -> assertThat(challenge.s()).isEqualTo(expectedChallengeSize));
     }
 
@@ -66,13 +71,17 @@ public class CreateChallengeTest {
     void testChallengeDifficultyConfig() {
         int expectedChallengeDifficulty = 6;
 
-        CapManager capManager = new CapManagerBuilder()
-                .challenge(config -> config.difficulty(expectedChallengeDifficulty))
-                .build();
+        CapManager capManager =
+                new CapManagerBuilder()
+                        .challenge(config -> config.difficulty(expectedChallengeDifficulty))
+                        .build();
 
         ChallengeData challengeData = capManager.createChallenge();
-        assertThat(challengeData.challenge()).isNotNull()
-                .satisfies(challenge -> assertThat(challenge.d()).isEqualTo(expectedChallengeDifficulty));
+        assertThat(challengeData.challenge())
+                .isNotNull()
+                .satisfies(
+                        challenge ->
+                                assertThat(challenge.d()).isEqualTo(expectedChallengeDifficulty));
     }
 
     @Test
@@ -80,9 +89,10 @@ public class CreateChallengeTest {
     void testChallengeExpireConfig() {
         long expectedChallengeExpireMs = 3 * 1000;
 
-        CapManager capManager = new CapManagerBuilder()
-                .challenge(config -> config.expireMs(expectedChallengeExpireMs))
-                .build();
+        CapManager capManager =
+                new CapManagerBuilder()
+                        .challenge(config -> config.expireMs(expectedChallengeExpireMs))
+                        .build();
 
         long startExpireTimeMillis = getExpireTimeMillis(expectedChallengeExpireMs);
         ChallengeData challengeData = capManager.createChallenge();

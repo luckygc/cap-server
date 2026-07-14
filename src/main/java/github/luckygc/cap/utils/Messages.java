@@ -5,10 +5,10 @@ import java.util.ResourceBundle;
 
 public class Messages {
 
-    private static final ResourceBundle BUNDLE = ResourceBundle.getBundle("github.luckygc.cap.messages.Messages");
+    private static final ResourceBundle BUNDLE =
+            ResourceBundle.getBundle("github.luckygc.cap.messages.Messages");
 
-    private Messages() {
-    }
+    private Messages() {}
 
     public static String get(String key, Object... args) {
         return MessageFormat.format(BUNDLE.getString(key), args);

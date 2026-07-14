@@ -2,28 +2,19 @@ package github.luckygc.cap.config;
 
 public class ChallengeConfig {
 
-    /**
-     * 生成的挑战数量
-     */
+    /** 生成的挑战数量 */
     private int count = 50;
 
-    /**
-     * 每条挑战的长度
-     */
+    /** 每条挑战的长度 */
     private int size = 32;
 
-    /**
-     * 挑战难度,目标前缀长度
-     */
+    /** 挑战难度,目标前缀长度 */
     private int difficulty = 4;
 
-    /**
-     * 挑战过期时间，毫秒
-     */
+    /** 挑战过期时间，毫秒 */
     private long expireMs = 5 * 60 * 1000;
 
-    public ChallengeConfig() {
-    }
+    public ChallengeConfig() {}
 
     private ChallengeConfig(Builder builder) {
         if (builder.count != null) {

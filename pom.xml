@@ -1,157 +1,127 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-	<groupId>com.github.luckygc</groupId>
-	<artifactId>cap-server</artifactId>
-	<version>2.0.0.2</version>
-	<name>cap-server</name>
-	<description>capjs server端方法实现</description>
+    <groupId>com.github.luckygc</groupId>
+    <artifactId>cap-server</artifactId>
+    <version>3.0.0</version>
+    <name>cap-server</name>
+    <description>capjs server端方法实现</description>
 
-	<licenses>
-		<license>
-			<name>The Apache Software License, Version 2.0</name>
-			<url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-		</license>
-	</licenses>
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
 
-	<repositories>
-		<repository>
-			<id>public</id>
-			<name>aliyun nexus</name>
-			<url>https://maven.aliyun.com/repository/public</url>
-			<releases>
-				<enabled>true</enabled>
-			</releases>
-		</repository>
-		<repository>
-			<id>jitpack.io</id>
-			<url>https://jitpack.io</url>
-		</repository>
-	</repositories>
-
-	<properties>
-		<project.build.encoding>UTF-8</project.build.encoding>
-		<java.version>17</java.version>
-		<jspecify.version>1.0.0</jspecify.version>
-		<junit.version>5.13.3</junit.version>
-		<assertj.version>3.27.7</assertj.version>
-		<checkstyle.version>10.26.1</checkstyle.version>
-        <commons-lang3.version>3.18.0</commons-lang3.version>
-        <commons-codec.version>1.17.2</commons-codec.version>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <jackson-core.version>3.2.1</jackson-core.version>
+        <caffeine.version>3.2.4</caffeine.version>
+        <slf4j.version>2.0.18</slf4j.version>
+        <jspecify.version>1.0.0</jspecify.version>
+        <junit.version>6.1.2</junit.version>
+        <assertj.version>3.27.7</assertj.version>
+        <compiler-plugin.version>3.15.0</compiler-plugin.version>
+        <surefire.version>3.5.6</surefire.version>
+        <spotless.version>3.8.0</spotless.version>
+        <google-java-format.version>1.35.0</google-java-format.version>
     </properties>
 
-	<dependencies>
+    <dependencies>
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons-lang3.version}</version>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson-core.version}</version>
         </dependency>
         <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>${commons-codec.version}</version>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.17</version>
+            <version>${slf4j.version}</version>
         </dependency>
-		<dependency>
-			<groupId>org.jspecify</groupId>
-			<artifactId>jspecify</artifactId>
-			<version>${jspecify.version}</version>
-		</dependency>
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>${jspecify.version}</version>
+        </dependency>
 
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter-api</artifactId>
-			<version>${junit.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter-engine</artifactId>
-			<version>${junit.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.assertj</groupId>
-			<artifactId>assertj-core</artifactId>
-			<version>${assertj.version}</version>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
+        <!-- Task 10 removes these after the legacy implementation is migrated. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.18.0</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.17.2</version>
+        </dependency>
 
-	<profiles>
-		<!--开发环境-->
-		<profile>
-			<id>dev</id>
-			<properties>
-				<profiles.active>dev</profiles.active>
-			</properties>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-		</profile>
-	</profiles>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-checkstyle-plugin</artifactId>
-				<version>3.6.0</version>
-				<dependencies>
-					<dependency>
-						<groupId>com.puppycrawl.tools</groupId>
-						<artifactId>checkstyle</artifactId>
-						<version>${checkstyle.version}</version>
-					</dependency>
-				</dependencies>
-				<executions>
-					<execution>
-						<id>validate</id>
-						<phase>validate</phase>
-						<goals>
-							<goal>check</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<configLocation>/tools/maven/custom_google_checks.xml</configLocation>
-					<suppressionsLocation>/tools/maven/suppressions.xml</suppressionsLocation>
-					<includeTestSourceDirectory>true</includeTestSourceDirectory>
-					<failOnViolation>true</failOnViolation>
-					<outputFile>checkstyle-report.xml</outputFile>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.14.0</version>
-				<configuration>
-					<source>${java.version}</source>
-					<target>${java.version}</target>
-					<encoding>${project.build.encoding}</encoding>
-					<!--                    <useIncrementalCompilation>false</useIncrementalCompilation>-->
-					<compilerArgs>
-						<arg>-parameters</arg>
-					</compilerArgs>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.5.3</version>
-				<configuration>
-					<skip>true</skip>
-				</configuration>
-			</plugin>
-
-		</plugins>
-	</build>
-
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${compiler-plugin.version}</version>
+                <configuration>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <removeUnusedImports/>
+                        <forbidWildcardImports/>
+                        <googleJavaFormat>
+                            <version>${google-java-format.version}</version>
+                            <style>AOSP</style>
+                            <formatJavadoc>true</formatJavadoc>
+                        </googleJavaFormat>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

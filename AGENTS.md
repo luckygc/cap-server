@@ -13,7 +13,6 @@
 - `src/main/java/github/luckygc/cap/utils/`：随机数与消息辅助代码。
 - `src/main/resources/`：本地化消息资源。
 - `src/test/java/`：JUnit 5 测试。
-- `tools/maven/`：Checkstyle 规则、抑制配置和 IDE 格式文件。
 
 ## 常用命令
 
@@ -27,17 +26,17 @@ mise exec maven -- mvn -Dtest=CreateChallengeTest test
 ```
 
 - `compile`：编译主代码，并执行 Maven 生命周期中更早阶段的检查。
-- `verify`：执行完整构建流程和 Checkstyle。
-- 当前 `maven-surefire-plugin` 写死了 `<skip>true</skip>`，因此 `test` 和 `verify` 都会跳过测试。
-- `-DskipTests=false`、`-Dmaven.test.skip=false` 等命令行参数不能覆盖该固定配置。
-- 需要实际执行测试时，先将 `pom.xml` 中 Surefire 的 `skip` 改为 `false`，再运行 `test`；完成后保留或还原该配置应由任务范围决定。
+- `verify`：执行完整构建流程、Spotless 检查、测试和打包。
+- 使用 `mise exec maven -- mvn spotless:apply` 自动格式化 Java。
+- `mise exec maven -- mvn test` 必须实际执行测试，不允许出现 `Tests are skipped.`。
+- `mise exec maven -- mvn verify` 必须通过 Spotless、测试和打包。
 - 使用 `-Dtest=类名` 或 `-Dtest=类名#方法名` 运行聚焦测试。
 
 ## 代码约定
 
 - 遵循 Java 17 和项目现有写法，不引入高于 Java 17 的语言或 API 要求。
 - 包名保持在 `github.luckygc.cap` 下，并按现有 `config`、`model`、`impl`、`utils` 职责放置代码。
-- 遵循 `tools/maven/custom_google_checks.xml` 中的 Google 风格 Checkstyle；不要手工绕过规则。
+- 使用 Spotless 和 Google Java Format 的 AOSP 风格；不要手工绕过规则。
 - 使用 4 空格缩进，类名使用 `UpperCamelCase`，方法和变量使用 `lowerCamelCase`，常量使用 `UPPER_SNAKE_CASE`。
 - 公开接口和非显然逻辑沿用现有中文 Javadoc；注释说明原因或语义，不复述代码。
 - 优先复用现有依赖和工具类；新增依赖必须有明确必要性，并集中在 `pom.xml` 管理版本。
@@ -63,8 +62,8 @@ mise exec maven -- mvn -Dtest=CreateChallengeTest test
 ## 完成前检查
 
 1. 检查改动是否局限于任务范围，公开 API 或协议语义是否意外变化。
-2. 运行 `mise exec maven -- mvn verify`，确认编译和 Checkstyle 通过。
-3. 按上述说明实际启用并运行测试；若任务不允许修改 Surefire 配置，明确说明测试被跳过。
+2. 运行 `mise exec maven -- mvn verify`，确认 Spotless、测试和打包通过。
+3. 确认 Maven 输出测试用例数量且未显示 `Tests are skipped.`。
 4. 检查 `git diff --check`，避免空白错误。
 5. 若任何命令无法执行，在交付说明中列出命令、原因和未验证风险。
 
