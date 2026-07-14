@@ -294,7 +294,7 @@ public final class Format1Protocol {
     }
 
     private static @Nullable String numberText(@Nullable Object value) {
-        if (!(value instanceof Number number) || !Double.isFinite(number.doubleValue())) {
+        if (!(value instanceof Number number) || Double.isNaN(number.doubleValue())) {
             return null;
         }
         return Format2Protocol.jsNumberToString(number);

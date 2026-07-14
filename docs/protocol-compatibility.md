@@ -57,8 +57,10 @@ Web 请求经 adapter 后对应
 `RedeemRequest(token, solutions, instr, instrBlocked, instrTimeout)`：
 
 - Format 1：`solutions` 是与 `c` 等长的 JSON Number 数组；与上游 `JSON.parse` 一样，所有值先按
-  binary64 舍入，再用 JavaScript `String(number)` 文本参与哈希，因此也接受有限小数、指数形式和
-  超出安全整数范围的值；启用 instrumentation 时，顶层 `instr` 包含
+  binary64 舍入，再用 JavaScript `String(number)` 文本参与哈希，因此也接受小数、指数形式、
+  超出安全整数范围的值，以及 `1e400` / `-1e400` 溢出得到的 `Infinity` / `-Infinity`；
+  `NaN` 不是合法 JSON 且 Java API 也拒绝它。仅 `RedeemRequest.solutions` 允许直接传入正负
+  Infinity，challenge extra 与 instrumentation state 仍要求有限浮点值。启用 instrumentation 时，顶层 `instr` 包含
   `i`、`state`、可空 `ts`，顶层 Web 字段 `instr_blocked` / `instr_timeout` 传递浏览器信号。
 - Format 2：`solutions` 与 `challenges` 逐项对齐。`sha256-pow` 使用 `{ "nonce": number|string }`，
   RSW 使用 `{ "y": "<hex>" }`，instrumentation 使用
@@ -103,7 +105,7 @@ Format 2 payload：
 ### Format 1 SHA-256 PoW
 
 salt 和 target 不直接放入 token。客户端按上游 FNV-1a resume 与 xorshift PRNG，从完整 JWT 和
-challenge 序号派生它们，然后寻找有限 JavaScript `Number`，使
+challenge 序号派生它们，然后寻找 JavaScript `Number`，使
 `sha256(salt + String(number))` 的小写 hex 以 target 开头。Java API 收到 `BigDecimal` 或
 `BigInteger` 时也先模拟 `JSON.parse` 的 binary64 舍入。参数范围为 `1<=c<=1000`、
 `1<=s<=256`、`1<=d<=16`。
@@ -111,7 +113,8 @@ challenge 序号派生它们，然后寻找有限 JavaScript `Number`，使
 ### Format 2 SHA-256 PoW
 
 每个公开 challenge 包含 hex `salt` 和 hex `target`。兑换接受 JavaScript `Number` 或字符串
-nonce；Number 转字符串、大小写 hex 前缀和奇数 nibble 前缀行为与上游保持一致。
+nonce；Number 转字符串（包括 exponent overflow 后的正负 Infinity）、大小写 hex 前缀和奇数
+nibble 前缀行为与上游保持一致。
 
 ### RSW
 

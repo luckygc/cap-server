@@ -264,16 +264,13 @@ class Format1ProtocolTest {
     }
 
     @Test
-    @DisplayName("Format 1 拒绝非有限 Number")
-    void rejectsNonFiniteNumbers() {
+    @DisplayName("Format 1 拒绝 NaN")
+    void rejectsNaN() {
         Format1Protocol protocol = protocol(1, 4, 1);
         String token = validToken(1, 4, 1);
 
         assertFailure(
                 protocol.validateComponents(true, token, List.of(Double.NaN), null),
-                "invalid_solutions");
-        assertFailure(
-                protocol.validateComponents(true, token, List.of(Double.POSITIVE_INFINITY), null),
                 "invalid_solutions");
     }
 

@@ -255,6 +255,92 @@ await writeFixture(
   }),
 );
 
+function infinityFormat1Oracle() {
+  for (let nonce = 0; nonce < 1_000_000; nonce++) {
+    const payload = {
+      n: nonce.toString(16).padStart(50, "0"),
+      c: 2,
+      s: 4,
+      d: 1,
+      exp: NOW + TTL_MS,
+      iat: NOW,
+    };
+    const token = crypto.jwtSign(payload, SECRET);
+    const values = [Infinity, -Infinity];
+    const vectors = values.map((value, index) => ({
+      ...format1Derivation(token, index, payload.s, payload.d),
+      jsText: String(value),
+      sourceJson: index === 0 ? "1e400" : "-1e400",
+    }));
+    if (
+      vectors.every((vector, index) =>
+        crypto.sha256Hex(`${vector.salt}${values[index]}`).startsWith(vector.target),
+      )
+    ) {
+      return { payload, token, values, vectors };
+    }
+  }
+  throw new Error("Format 1 Infinity oracle search exhausted");
+}
+
+function infinitySalt(value) {
+  for (let candidate = 0; candidate < 1_000_000; candidate++) {
+    const salt = candidate.toString(16).padStart(8, "0");
+    if (crypto.sha256Hex(`${salt}${value}`).startsWith("0")) return salt;
+  }
+  throw new Error(`Format 2 Infinity salt search exhausted for ${value}`);
+}
+
+const format1Infinity = infinityFormat1Oracle();
+const format1InfinityRedeemed = await core.validateChallenge(
+  SECRET,
+  { token: format1Infinity.token, solutions: format1Infinity.values },
+  { signToken: () => "format1-infinity-oracle" },
+);
+const format2InfinityExpected = [Infinity, -Infinity].map((value) => ({
+  protocol: "sha256-pow",
+  salt: infinitySalt(value),
+  target: "0",
+}));
+const format2InfinityPayload = {
+  f: 2,
+  n: "000102030405060708090a0b0c0d0e0f",
+  exp: NOW + TTL_MS,
+  iat: NOW,
+  ev: crypto.encryptGcm({ expected: format2InfinityExpected }, SECRET, "cap:fmt2-v1"),
+};
+const format2InfinityToken = crypto.jwtSign(format2InfinityPayload, SECRET);
+const format2InfinitySolutions = [{ nonce: Infinity }, { nonce: -Infinity }];
+const format2InfinityRedeemed = await core.validateChallenge(
+  SECRET,
+  { token: format2InfinityToken, solutions: format2InfinitySolutions },
+  { signToken: () => "format2-infinity-oracle" },
+);
+if (!format1InfinityRedeemed.success || !format2InfinityRedeemed.success) {
+  throw new Error("Infinity overflow oracle failed");
+}
+await writeFixture(
+  "number-overflow-solutions.json",
+  envelope("number-overflow-solutions", {
+    format1: {
+      payload: format1Infinity.payload,
+      redeemed: format1InfinityRedeemed,
+      solutionSourceJson: ["1e400", "-1e400"],
+      token: format1Infinity.token,
+      vectors: format1Infinity.vectors,
+    },
+    format2: {
+      expected: format2InfinityExpected,
+      payload: format2InfinityPayload,
+      redeemed: format2InfinityRedeemed,
+      solutionSourceJson: ["1e400", "-1e400"],
+      token: format2InfinityToken,
+    },
+    now: NOW,
+    secret: SECRET,
+  }),
+);
+
 const format1InstrumentationOptions = {
   ...format1Options,
   instrumentation: { blockAutomatedBrowsers: true, obfuscationLevel: 1 },
@@ -429,5 +515,5 @@ await writeFixture(
 );
 
 process.stdout.write(
-  `${JSON.stringify({ output: outputDirectory, package: `${PACKAGE}@${VERSION}`, fixtures: 5 })}\n`,
+  `${JSON.stringify({ output: outputDirectory, package: `${PACKAGE}@${VERSION}`, fixtures: 6 })}\n`,
 );

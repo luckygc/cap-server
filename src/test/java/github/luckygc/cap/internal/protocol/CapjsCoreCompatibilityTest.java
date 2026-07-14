@@ -68,6 +68,67 @@ class CapjsCoreCompatibilityTest {
     }
 
     @Test
+    @DisplayName("Java 接受上游 JSON exponent overflow 的正负 Infinity 解答")
+    void acceptsGeneratedInfinityOverflowSemantics() throws IOException {
+        Map<String, @Nullable Object> fixture = fixture("number-overflow-solutions.json");
+        assertMetadata(fixture, "number-overflow-solutions");
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> format1 =
+                (Map<String, @Nullable Object>) fixture.get("format1");
+        @SuppressWarnings("unchecked")
+        Map<String, @Nullable Object> format2 =
+                (Map<String, @Nullable Object>) fixture.get("format2");
+        List<@Nullable Object> overflow =
+                List.of(new BigDecimal("1e400"), new BigDecimal("-1e400"));
+
+        RedeemRequest format1Request =
+                new RedeemRequest((String) format1.get("token"), overflow, null, false, false);
+        RedeemRequest format2Request =
+                new RedeemRequest(
+                        (String) format2.get("token"),
+                        List.of(Map.of("nonce", overflow.get(0)), Map.of("nonce", overflow.get(1))),
+                        null,
+                        false,
+                        false);
+        Format2Protocol format2Protocol =
+                new Format2Protocol(
+                        SECRET,
+                        List.of(CapProtocol.SHA256_POW),
+                        1,
+                        4,
+                        1,
+                        null,
+                        InstrumentationOptions.defaults(),
+                        fixtureClock(fixture),
+                        new SecureRandom());
+
+        assertThat(format1(fixture).validate(format1Request, null))
+                .isInstanceOf(Format1Protocol.Validated.class);
+        assertThat(format2Protocol.validate(format2Request, null))
+                .isInstanceOf(Format2Protocol.Validated.class);
+        RedeemRequest directFormat1 =
+                new RedeemRequest(
+                        (String) format1.get("token"),
+                        List.of(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY),
+                        null,
+                        false,
+                        false);
+        RedeemRequest directFormat2 =
+                new RedeemRequest(
+                        (String) format2.get("token"),
+                        List.of(
+                                Map.of("nonce", Double.POSITIVE_INFINITY),
+                                Map.of("nonce", Double.NEGATIVE_INFINITY)),
+                        null,
+                        false,
+                        false);
+        assertThat(format1(fixture).validate(directFormat1, null))
+                .isInstanceOf(Format1Protocol.Validated.class);
+        assertThat(format2Protocol.validate(directFormat2, null))
+                .isInstanceOf(Format2Protocol.Validated.class);
+    }
+
+    @Test
     @DisplayName("Java 接受上游生成的 Format 1 instrumentation 并匹配 blocked oracle")
     void acceptsGeneratedFormat1Instrumentation() throws IOException {
         Map<String, @Nullable Object> fixture = fixture("format1-instrumentation.json");

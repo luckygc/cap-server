@@ -1,0 +1,94 @@
+{
+  "format1": {
+    "payload": {
+      "c": 2,
+      "d": 1,
+      "exp": 4102445400000,
+      "iat": 4102444800000,
+      "n": "00000000000000000000000000000000000000000000000109",
+      "s": 4
+    },
+    "redeemed": {
+      "expires": 4102446000000,
+      "iat": 4102444800000,
+      "scope": null,
+      "success": true,
+      "token": "format1-infinity-oracle"
+    },
+    "solutionSourceJson": [
+      "1e400",
+      "-1e400"
+    ],
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxMDkiLCJjIjoyLCJzIjo0LCJkIjoxLCJleHAiOjQxMDI0NDU0MDAwMDAsImlhdCI6NDEwMjQ0NDgwMDAwMH0.gFVKN3NNAZ3PduMzXEvScLVMIDCy5wgGRet-qc1kSC4",
+    "vectors": [
+      {
+        "jsText": "Infinity",
+        "salt": "e69f",
+        "sourceJson": "1e400",
+        "target": "c"
+      },
+      {
+        "jsText": "-Infinity",
+        "salt": "9f19",
+        "sourceJson": "-1e400",
+        "target": "4"
+      }
+    ]
+  },
+  "format2": {
+    "expected": [
+      {
+        "protocol": "sha256-pow",
+        "salt": "00000010",
+        "target": "0"
+      },
+      {
+        "protocol": "sha256-pow",
+        "salt": "0000003a",
+        "target": "0"
+      }
+    ],
+    "payload": {
+      "ev": "MLBuTaciN6eZnoAxrwjP87cu7ACxcEPyfHmbHVu35Jp3_HZmg8V92zvQ2P0RLYO5XuC6jcgFDDSiUqSEf_Ih9EHn9IpLQtIRhJxvUhCgz8W2HAnMEeXPCrPEphUoaCKE0vDhfeQ34gU2NdZLGH4bsqssPHhYLy-UoPoIMJXNxNYScjWxztTxY_vt-NM6MTRih8IutQab9N0nrizE",
+      "exp": 4102445400000,
+      "f": 2,
+      "iat": 4102444800000,
+      "n": "000102030405060708090a0b0c0d0e0f"
+    },
+    "redeemed": {
+      "expires": 4102446000000,
+      "iat": 4102444800000,
+      "scope": null,
+      "success": true,
+      "token": "format2-infinity-oracle"
+    },
+    "solutionSourceJson": [
+      "1e400",
+      "-1e400"
+    ],
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmIjoyLCJuIjoiMDAwMTAyMDMwNDA1MDYwNzA4MDkwYTBiMGMwZDBlMGYiLCJleHAiOjQxMDI0NDU0MDAwMDAsImlhdCI6NDEwMjQ0NDgwMDAwMCwiZXYiOiJNTEJ1VGFjaU42ZVpub0F4cndqUDg3Y3U3QUN4Y0VQeWZIbWJIVnUzNUpwM19IWm1nOFY5Mnp2UTJQMFJMWU81WHVDNmpjZ0ZERFNpVXFTRWZfSWg5RUhuOUlwTFF0SVJoSnh2VWhDZ3o4VzJIQW5NRWVYUENyUEVwaFVvYUNLRTB2RGhmZVEzNGdVMk5kWkxHSDRic3Fzc1BIaFlMeS1Vb1BvSU1KWE54TllTY2pXeHp0VHhZX3Z0LU5NNk1UUmloOEl1dFFhYjlOMG5yaXpFIn0.w_iEYVZOF1f3jMjafzYHbPj8bo87y2ER2XlBFlqzV0A"
+  },
+  "generator": "tools/fixtures/generate-capjs-core-fixtures.mjs",
+  "kind": "number-overflow-solutions",
+  "now": 4102444800000,
+  "schema": "https://github.com/luckygc/cap-server/fixtures/capjs-core-v1",
+  "schemaVersion": 1,
+  "secret": "0123456789abcdef0123456789abcdef",
+  "source": {
+    "npm": {
+      "filesSha256": {
+        "crypto.js": "a7cdbe4fc286475d1279edfdf4ef5a2377949f795b2ec83a45514acc23539f17",
+        "index.js": "05b3ea7b00d29af72e2ccb7f0770e4b78a99835c8cad4af175315e9d3319e1bc",
+        "instrumentation.js": "73c7ab9f4b89dd30036ae361ec5ec3992dc8600508009e49f935a782408fb970",
+        "prng.js": "62603a23e7d6c6538e65cea26b9e8abd5eaac967f73968de2734dd3c03cb0ed2",
+        "rsw.js": "200f91cd42677377d214e48b0cd476dfe599fdae93f13e8dbea5631617ca1477"
+      },
+      "integrity": "sha512-I5ZAsG6avdMFs3RxEbNFj9VggWMV6JEUIUvKFCOLR2Q9plxrEe+i4515ejtkCP6nkyE8b75L81ygjYZKmugWMg==",
+      "resolved": "https://registry.npmjs.org/capjs-core/-/capjs-core-0.1.1.tgz",
+      "version": "0.1.1"
+    },
+    "package": "capjs-core",
+    "repository": "https://github.com/tiagozip/cap",
+    "semanticReferenceCommit": "f9ffadb"
+  }
+}

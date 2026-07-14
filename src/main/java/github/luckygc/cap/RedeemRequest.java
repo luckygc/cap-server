@@ -14,7 +14,7 @@ public record RedeemRequest(
 
     public RedeemRequest {
         Objects.requireNonNull(token, "token");
-        solutions = ChallengeOptions.immutableList(solutions);
+        solutions = ChallengeOptions.immutableSolutions(solutions);
     }
 
     public record InstrumentationResult(

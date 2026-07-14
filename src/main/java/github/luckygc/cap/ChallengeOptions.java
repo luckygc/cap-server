@@ -62,12 +62,12 @@ public final class ChallengeOptions {
     }
 
     static Map<String, @Nullable Object> immutableMap(Map<?, @Nullable ?> source) {
-        validateJsonValue(source);
-        return immutableMap(source, newIdentitySet());
+        validateJsonValue(source, false);
+        return immutableMap(source, newIdentitySet(), false);
     }
 
     private static Map<String, @Nullable Object> immutableMap(
-            Map<?, @Nullable ?> source, Set<Object> visiting) {
+            Map<?, @Nullable ?> source, Set<Object> visiting, boolean allowInfinity) {
         Objects.requireNonNull(source, "map");
         enterContainer(source, visiting);
         Map<String, @Nullable Object> copy = new LinkedHashMap<>();
@@ -77,7 +77,7 @@ public final class ChallengeOptions {
                 if (!(key instanceof String stringKey)) {
                     throw new IllegalArgumentException("map keys must be strings");
                 }
-                copy.put(stringKey, immutableValue(entry.getValue(), visiting));
+                copy.put(stringKey, immutableValue(entry.getValue(), visiting, allowInfinity));
             }
         } finally {
             visiting.remove(source);
@@ -86,18 +86,23 @@ public final class ChallengeOptions {
     }
 
     static List<@Nullable Object> immutableList(List<@Nullable ?> source) {
-        validateJsonValue(source);
-        return immutableList(source, newIdentitySet());
+        validateJsonValue(source, false);
+        return immutableList(source, newIdentitySet(), false);
+    }
+
+    static List<@Nullable Object> immutableSolutions(List<@Nullable ?> source) {
+        validateJsonValue(source, true);
+        return immutableList(source, newIdentitySet(), true);
     }
 
     private static List<@Nullable Object> immutableList(
-            List<@Nullable ?> source, Set<Object> visiting) {
+            List<@Nullable ?> source, Set<Object> visiting, boolean allowInfinity) {
         Objects.requireNonNull(source, "list");
         enterContainer(source, visiting);
         List<@Nullable Object> copy = new ArrayList<>(source.size());
         try {
             for (@Nullable Object value : source) {
-                copy.add(immutableValue(value, visiting));
+                copy.add(immutableValue(value, visiting, allowInfinity));
             }
         } finally {
             visiting.remove(source);
@@ -105,15 +110,16 @@ public final class ChallengeOptions {
         return Collections.unmodifiableList(copy);
     }
 
-    private static @Nullable Object immutableValue(@Nullable Object value, Set<Object> visiting) {
+    private static @Nullable Object immutableValue(
+            @Nullable Object value, Set<Object> visiting, boolean allowInfinity) {
         if (value == null) {
             return null;
         }
         if (value instanceof Map<?, @Nullable ?> map) {
-            return immutableMap(map, visiting);
+            return immutableMap(map, visiting, allowInfinity);
         }
         if (value instanceof List<@Nullable ?> list) {
-            return immutableList(list, visiting);
+            return immutableList(list, visiting, allowInfinity);
         }
         if (value instanceof String
                 || value instanceof Boolean
@@ -126,13 +132,13 @@ public final class ChallengeOptions {
             return value;
         }
         if (value instanceof Float floatValue) {
-            if (Float.isFinite(floatValue)) {
+            if (Float.isFinite(floatValue) || allowInfinity && !Float.isNaN(floatValue)) {
                 return value;
             }
             throw new IllegalArgumentException("JSON floating-point values must be finite");
         }
         if (value instanceof Double doubleValue) {
-            if (Double.isFinite(doubleValue)) {
+            if (Double.isFinite(doubleValue) || allowInfinity && !Double.isNaN(doubleValue)) {
                 return value;
             }
             throw new IllegalArgumentException("JSON floating-point values must be finite");
@@ -140,7 +146,7 @@ public final class ChallengeOptions {
         throw new IllegalArgumentException("map/list values must be immutable JSON values");
     }
 
-    private static void validateJsonValue(Object root) {
+    private static void validateJsonValue(Object root, boolean allowInfinity) {
         ArrayDeque<JsonFrame> pending = new ArrayDeque<>();
         Set<Object> visiting = newIdentitySet();
         pending.push(new JsonFrame(root, 1, false));
@@ -173,7 +179,7 @@ public final class ChallengeOptions {
                     pending.push(new JsonFrame(list.get(index), frame.depth() + 1, false));
                 }
             } else {
-                validateJsonLeaf(value);
+                validateJsonLeaf(value, allowInfinity);
             }
         }
     }
@@ -189,7 +195,7 @@ public final class ChallengeOptions {
         enterContainer(container, visiting);
     }
 
-    private static void validateJsonLeaf(@Nullable Object value) {
+    private static void validateJsonLeaf(@Nullable Object value, boolean allowInfinity) {
         if (value == null || value instanceof Boolean) {
             return;
         }
@@ -205,10 +211,12 @@ public final class ChallengeOptions {
                 || value instanceof BigDecimal) {
             return;
         }
-        if (value instanceof Float floatValue && Float.isFinite(floatValue)) {
+        if (value instanceof Float floatValue
+                && (Float.isFinite(floatValue) || allowInfinity && !Float.isNaN(floatValue))) {
             return;
         }
-        if (value instanceof Double doubleValue && Double.isFinite(doubleValue)) {
+        if (value instanceof Double doubleValue
+                && (Double.isFinite(doubleValue) || allowInfinity && !Double.isNaN(doubleValue))) {
             return;
         }
         if (value instanceof Number) {

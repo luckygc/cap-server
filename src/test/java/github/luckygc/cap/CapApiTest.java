@@ -166,6 +166,37 @@ class CapApiTest {
     }
 
     @Test
+    @DisplayName("仅兑换 solutions 允许正负 Infinity")
+    void onlyRedeemSolutionsAllowInfinity() {
+        RedeemRequest request =
+                new RedeemRequest(
+                        "token",
+                        List.of(
+                                Double.POSITIVE_INFINITY,
+                                Map.of("nonce", Double.NEGATIVE_INFINITY)),
+                        null,
+                        false,
+                        false);
+
+        assertThat(request.solutions())
+                .containsExactly(
+                        Double.POSITIVE_INFINITY, Map.of("nonce", Double.NEGATIVE_INFINITY));
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () ->
+                                new RedeemRequest.InstrumentationResult(
+                                        "id", Map.of("x", Double.POSITIVE_INFINITY), null));
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () ->
+                                ChallengeOptions.builder()
+                                        .extra(Map.of("x", Double.NEGATIVE_INFINITY)));
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () -> new RedeemRequest("token", List.of(Double.NaN), null, false, false));
+    }
+
+    @Test
     @DisplayName("映射拒绝循环容器")
     void mapsRejectContainerCycles() {
         Map<String, Object> cyclic = new LinkedHashMap<>();
