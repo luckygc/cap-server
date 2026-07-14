@@ -1,11 +1,10 @@
 package github.luckygc.cap;
 
+import github.luckygc.cap.internal.instrumentation.BuiltinInstrumentationTransformer;
 import java.util.Objects;
 
 public final class InstrumentationOptions {
 
-    private static final InstrumentationTransformer IDENTITY_TRANSFORMER =
-            (script, level) -> script;
     private static final InstrumentationOptions DEFAULTS = new Builder().build();
 
     private final int level;
@@ -42,7 +41,7 @@ public final class InstrumentationOptions {
 
         private int level = 3;
         private boolean blockAutomatedBrowsers;
-        private InstrumentationTransformer transformer = IDENTITY_TRANSFORMER;
+        private InstrumentationTransformer transformer = BuiltinInstrumentationTransformer.INSTANCE;
 
         private Builder() {}
 
