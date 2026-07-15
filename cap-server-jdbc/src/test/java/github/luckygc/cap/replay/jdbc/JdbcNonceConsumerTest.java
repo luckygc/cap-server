@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -18,6 +20,23 @@ import org.junit.jupiter.api.Test;
 class JdbcNonceConsumerTest {
     private static final Clock FIXED_CLOCK =
             Clock.fixed(Instant.parse("2026-07-15T00:00:00Z"), ZoneOffset.UTC);
+
+    @Test
+    @DisplayName("README JDBC 示例使用可编译的公开构造器")
+    void readmeDocumentsCompilingPublicConstructor() throws Exception {
+        RecordingJdbc jdbc = new RecordingJdbc();
+        JdbcNonceConsumer consumer =
+                new JdbcNonceConsumer(jdbc.dataSource(), JdbcDialect.POSTGRESQL);
+        String readme = Files.readString(repositoryRoot().resolve("README.md"));
+
+        assertThat(consumer).isNotNull();
+        assertThat(readme)
+                .contains(
+                        "import github.luckygc.cap.replay.jdbc.JdbcDialect;",
+                        "import github.luckygc.cap.replay.jdbc.JdbcNonceConsumer;",
+                        "import javax.sql.DataSource;",
+                        "new JdbcNonceConsumer(dataSource, JdbcDialect.POSTGRESQL)");
+    }
 
     @Test
     @DisplayName("默认 SQL 使用固定 nonce 表")
@@ -354,6 +373,18 @@ class JdbcNonceConsumerTest {
         return dialect == JdbcDialect.POSTGRESQL
                 ? new SQLException("duplicate", "23505", 0)
                 : new SQLException("duplicate", "23000", 1062);
+    }
+
+    private static Path repositoryRoot() {
+        Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+        if (Files.isRegularFile(workingDirectory.resolve("README.md"))) {
+            return workingDirectory;
+        }
+        Path parent = workingDirectory.getParent();
+        if (parent != null && Files.isRegularFile(parent.resolve("README.md"))) {
+            return parent;
+        }
+        throw new IllegalStateException("repository root unavailable");
     }
 
     private static void assertFailureIsRethrown(

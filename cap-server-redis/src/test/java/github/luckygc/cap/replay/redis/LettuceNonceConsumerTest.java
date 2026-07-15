@@ -10,6 +10,8 @@ import io.lettuce.core.api.sync.RedisStringCommands;
 import io.lettuce.core.codec.StringCodec;
 import io.lettuce.core.protocol.CommandArgs;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -17,6 +19,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class LettuceNonceConsumerTest {
+
+    @Test
+    @DisplayName("README Redis 示例使用可编译的公开构造器")
+    void readmeDocumentsCompilingPublicConstructor() throws Exception {
+        RedisStringCommands<String, String> commands =
+                redisCommandsReturning("OK", new AtomicReference<>());
+        LettuceNonceConsumer consumer = new LettuceNonceConsumer(commands);
+        String readme = Files.readString(repositoryRoot().resolve("README.md"));
+
+        assertThat(consumer).isNotNull();
+        assertThat(readme)
+                .contains(
+                        "import github.luckygc.cap.replay.redis.LettuceNonceConsumer;",
+                        "import io.lettuce.core.api.StatefulRedisConnection;",
+                        "new LettuceNonceConsumer(connection.sync())");
+    }
 
     @Test
     @DisplayName("默认前缀通过 SET NX PX 原子写入固定值")
@@ -144,5 +162,17 @@ class LettuceNonceConsumerTest {
                             }
                             throw new AssertionError("unexpected Redis command");
                         });
+    }
+
+    private static Path repositoryRoot() {
+        Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+        if (Files.isRegularFile(workingDirectory.resolve("README.md"))) {
+            return workingDirectory;
+        }
+        Path parent = workingDirectory.getParent();
+        if (parent != null && Files.isRegularFile(parent.resolve("README.md"))) {
+            return parent;
+        }
+        throw new IllegalStateException("repository root unavailable");
     }
 }

@@ -15,6 +15,7 @@
 target
 tmp
 .worktrees/
+.superpowers/
 *.class
 *.iml
 *.jar

@@ -2,12 +2,29 @@ package github.luckygc.cap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("Maven 测试生命周期契约")
 class BuildLifecycleContractTest {
+    @Test
+    @DisplayName("本地审查材料被忽略且不进入版本控制")
+    void localReviewArtifactsStayUntracked() throws Exception {
+        String gitignore = Files.readString(RepositoryPaths.root().resolve(".gitignore"));
+
+        assertThat(gitignore.lines().anyMatch(".superpowers/"::equals))
+                .as("repository hygiene ignore rule")
+                .isTrue();
+
+        ProcessResult trackedArtifacts = runGit("ls-files", ".superpowers");
+        assertThat(trackedArtifacts.exitCode()).as("repository hygiene git command").isZero();
+        assertThat(trackedArtifacts.output().isBlank())
+                .as("repository hygiene tracked artifacts")
+                .isTrue();
+    }
+
     @Test
     @DisplayName("核心坐标由三模块 reactor 保持")
     void reactorPreservesCoreCoordinates() throws Exception {
@@ -136,12 +153,23 @@ class BuildLifecycleContractTest {
                         "autoCommit=true",
                         "一分钟安全余量",
                         "会话时区",
-                        "signature_hex VARCHAR(64) PRIMARY KEY",
-                        "expires_at TIMESTAMP WITH TIME ZONE NOT NULL",
+                        "CREATE TABLE cap_consumed_nonces (\n"
+                                + "    signature_hex VARCHAR(64) PRIMARY KEY,\n"
+                                + "    expires_at TIMESTAMP WITH TIME ZONE NOT NULL\n"
+                                + ");",
                         "CURRENT_TIMESTAMP - INTERVAL '1 minute'",
-                        "signature_hex VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY",
-                        "expires_at TIMESTAMP(6) NOT NULL",
+                        "CREATE TABLE cap_consumed_nonces (\n"
+                                + "    signature_hex VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,\n"
+                                + "    expires_at TIMESTAMP(6) NOT NULL\n"
+                                + ");",
                         "CURRENT_TIMESTAMP(6) - INTERVAL 1 MINUTE");
+        assertThat(
+                        countOccurrences(
+                                replayStorage,
+                                "CREATE INDEX cap_consumed_nonces_expires_at_idx\n"
+                                        + "    ON cap_consumed_nonces (expires_at);"))
+                .as("documented expiration indexes")
+                .isEqualTo(2);
         assertThat(compatibility)
                 .contains("CaffeineNonceConsumer", "JdbcNonceConsumer", "LettuceNonceConsumer");
         assertThat(agents).contains("cap-server-jdbc/", "cap-server-redis/", "-Pstore-integration");
@@ -166,4 +194,30 @@ class BuildLifecycleContractTest {
                         "playwright@1.52.0",
                         "instr_automated_browser");
     }
+
+    private static ProcessResult runGit(String... arguments)
+            throws IOException, InterruptedException {
+        String[] command = new String[arguments.length + 1];
+        command[0] = "git";
+        System.arraycopy(arguments, 0, command, 1, arguments.length);
+        Process process =
+                new ProcessBuilder(command)
+                        .directory(RepositoryPaths.root().toFile())
+                        .redirectErrorStream(true)
+                        .start();
+        String output = new String(process.getInputStream().readAllBytes());
+        return new ProcessResult(process.waitFor(), output);
+    }
+
+    private static int countOccurrences(String value, String expected) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = value.indexOf(expected, offset)) >= 0) {
+            count++;
+            offset += expected.length();
+        }
+        return count;
+    }
+
+    private record ProcessResult(int exitCode, String output) {}
 }
