@@ -1,4 +1,4 @@
-package github.luckygc.cap.replay.redis;
+package github.luckygc.cap.replay.jdbc;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -101,11 +101,5 @@ final class StoreIntegrationSupport {
 
     private static IllegalStateException concurrencyFailure(String category) {
         return new IllegalStateException("store-integration category=" + category);
-    }
-
-    static IllegalStateException dockerUnavailable() {
-        return new IllegalStateException(
-                "store-integration category=docker_unavailable; start Docker and rerun "
-                        + "mise exec maven -- mvn -Pstore-integration verify");
     }
 }

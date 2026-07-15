@@ -7,13 +7,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
@@ -82,32 +77,9 @@ class JdbcNonceConsumerStoreIT {
         }
     }
 
-    private static List<Boolean> concurrentResults(JdbcNonceConsumer consumer, String signature)
-            throws Exception {
-        ExecutorService executor = Executors.newFixedThreadPool(CONCURRENCY);
-        CountDownLatch ready = new CountDownLatch(CONCURRENCY);
-        CountDownLatch start = new CountDownLatch(1);
-        try {
-            List<Future<Boolean>> futures = new ArrayList<>();
-            for (int index = 0; index < CONCURRENCY; index++) {
-                futures.add(
-                        executor.submit(
-                                () -> {
-                                    ready.countDown();
-                                    start.await();
-                                    return consumer.consume(signature, TTL);
-                                }));
-            }
-            ready.await();
-            start.countDown();
-            List<Boolean> results = new ArrayList<>();
-            for (Future<Boolean> future : futures) {
-                results.add(future.get());
-            }
-            return results;
-        } finally {
-            executor.shutdownNow();
-        }
+    private static List<Boolean> concurrentResults(JdbcNonceConsumer consumer, String signature) {
+        return StoreIntegrationSupport.runConcurrently(
+                CONCURRENCY, () -> consumer.consume(signature, TTL));
     }
 
     private static Boolean[] successes() {
