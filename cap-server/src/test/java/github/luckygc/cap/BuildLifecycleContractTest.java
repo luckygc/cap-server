@@ -90,6 +90,25 @@ class BuildLifecycleContractTest {
     }
 
     @Test
+    @DisplayName("JDBC 真实存储测试使用各方言最终文档 DDL")
+    void jdbcStoreIntegrationUsesDocumentedDialectDdl() throws Exception {
+        String testSource =
+                Files.readString(
+                        RepositoryPaths.root()
+                                .resolve(
+                                        "cap-server-jdbc/src/test/java/github/luckygc/cap/replay/jdbc/"
+                                                + "JdbcNonceConsumerStoreIT.java"));
+
+        assertThat(testSource)
+                .contains(
+                        "signature_hex VARCHAR(64) PRIMARY KEY",
+                        "expires_at TIMESTAMP WITH TIME ZONE NOT NULL",
+                        "signature_hex VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY",
+                        "expires_at TIMESTAMP(6) NOT NULL",
+                        "+ UUID.randomUUID().toString().replace(\"-\", \"\")");
+    }
+
+    @Test
     @DisplayName("widget E2E 文档固定依赖与失败语义")
     void widgetE2eDocumentationIsComplete() throws Exception {
         assertWidgetE2eDocumentation("AGENTS.md");

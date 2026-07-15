@@ -19,11 +19,22 @@ import org.junit.jupiter.api.TestFactory;
 class JdbcNonceConsumerStoreIT {
     private static final int CONCURRENCY = 32;
     private static final Duration TTL = Duration.ofMinutes(5);
-    private static final String CREATE_TABLE =
+    private static final String CONSTRAINT_FAILURE_SIGNATURE =
+            "0000000000000000000000000000000000000000000000000000000000000000";
+    private static final String POSTGRESQL_CREATE_TABLE =
             "CREATE TABLE cap_consumed_nonces ("
-                    + "signature_hex VARCHAR(128) PRIMARY KEY, "
+                    + "signature_hex VARCHAR(64) PRIMARY KEY, "
+                    + "expires_at TIMESTAMP WITH TIME ZONE NOT NULL, "
+                    + "CHECK (signature_hex <> '"
+                    + CONSTRAINT_FAILURE_SIGNATURE
+                    + "'))";
+    private static final String MYSQL_CREATE_TABLE =
+            "CREATE TABLE cap_consumed_nonces ("
+                    + "signature_hex VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY, "
                     + "expires_at TIMESTAMP(6) NOT NULL, "
-                    + "CHECK (signature_hex <> 'constraint_failure'))";
+                    + "CHECK (signature_hex <> '"
+                    + CONSTRAINT_FAILURE_SIGNATURE
+                    + "'))";
 
     @TestFactory
     @DisplayName("三种数据库均保持原子消费与错误分类")
@@ -49,14 +60,14 @@ class JdbcNonceConsumerStoreIT {
 
     private static void verifyDatabase(String url, JdbcDialect dialect) throws Exception {
         DataSource dataSource = availableDataSource(url);
-        recreateTable(dataSource);
+        recreateTable(dataSource, dialect);
         JdbcNonceConsumer consumer = new JdbcNonceConsumer(dataSource, dialect);
         String signature = syntheticSignature();
 
         assertThat(concurrentResults(consumer, signature)).containsExactlyInAnyOrder(successes());
         assertThat(consumer.consume(signature, TTL)).isFalse();
         assertThat(consumer.consume(syntheticSignature(), TTL)).isTrue();
-        assertThatThrownBy(() -> consumer.consume("constraint_failure", TTL))
+        assertThatThrownBy(() -> consumer.consume(CONSTRAINT_FAILURE_SIGNATURE, TTL))
                 .isInstanceOf(SQLException.class);
     }
 
@@ -69,12 +80,20 @@ class JdbcNonceConsumerStoreIT {
         }
     }
 
-    private static void recreateTable(DataSource dataSource) throws SQLException {
+    private static void recreateTable(DataSource dataSource, JdbcDialect dialect)
+            throws SQLException {
         try (Connection connection = dataSource.getConnection();
                 Statement statement = connection.createStatement()) {
             statement.executeUpdate("DROP TABLE IF EXISTS cap_consumed_nonces");
-            statement.executeUpdate(CREATE_TABLE);
+            statement.executeUpdate(createTable(dialect));
         }
+    }
+
+    private static String createTable(JdbcDialect dialect) {
+        return switch (dialect) {
+            case POSTGRESQL -> POSTGRESQL_CREATE_TABLE;
+            case MYSQL, MARIADB -> MYSQL_CREATE_TABLE;
+        };
     }
 
     private static List<Boolean> concurrentResults(JdbcNonceConsumer consumer, String signature) {
@@ -92,7 +111,8 @@ class JdbcNonceConsumerStoreIT {
     }
 
     private static String syntheticSignature() {
-        return UUID.randomUUID().toString().replace("-", "");
+        return UUID.randomUUID().toString().replace("-", "")
+                + UUID.randomUUID().toString().replace("-", "");
     }
 
     private static IllegalStateException dockerUnavailable() {

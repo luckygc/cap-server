@@ -40,7 +40,8 @@ class StoreIntegrationSupportTest {
                         executor,
                         () -> {
                             entered.countDown();
-                            return entered.await(1, TimeUnit.SECONDS);
+                            entered.await();
+                            return true;
                         });
 
         assertThat(results).hasSize(32).containsOnly(true);
@@ -156,6 +157,45 @@ class StoreIntegrationSupportTest {
         assertThat(executor.tasks).allMatch(task -> task.cancelAttempted.get());
     }
 
+    @Test
+    @DisplayName("清理等待首次中断后继续等待终止")
+    void continuesCleanupAfterAwaitTerminationIsInterrupted() {
+        InterruptingAwaitExecutor executor = new InterruptingAwaitExecutor(true);
+
+        assertThatThrownBy(
+                        () ->
+                                StoreIntegrationSupport.runConcurrently(
+                                        1,
+                                        SHORT_TIMEOUT,
+                                        executor,
+                                        () -> {
+                                            throw new IllegalArgumentException("sensitive");
+                                        }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("store-integration category=concurrency_interrupted")
+                .hasNoCause();
+
+        assertThat(executor.awaitTerminationCalls).isEqualTo(2);
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("清理中断后仍未终止时以终止失败优先")
+    void executorNonTerminationWinsAfterCleanupInterruption() {
+        InterruptingAwaitExecutor executor = new InterruptingAwaitExecutor(false);
+
+        assertThatThrownBy(
+                        () ->
+                                StoreIntegrationSupport.runConcurrently(
+                                        1, SHORT_TIMEOUT, executor, () -> true))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("store-integration category=executor_not_terminated")
+                .hasNoCause();
+
+        assertThat(executor.awaitTerminationCalls).isGreaterThan(1);
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    }
+
     private static TrackingExecutor trackingExecutor(int threads) {
         return new TrackingExecutor(Executors.newFixedThreadPool(threads));
     }
@@ -238,6 +278,50 @@ class StoreIntegrationSupportTest {
         public boolean cancel(boolean mayInterruptIfRunning) {
             cancelAttempted.set(true);
             return super.cancel(mayInterruptIfRunning);
+        }
+    }
+
+    private static final class InterruptingAwaitExecutor extends AbstractExecutorService {
+        private final ExecutorService delegate = Executors.newSingleThreadExecutor();
+        private final boolean terminateAfterInterrupt;
+        private int awaitTerminationCalls;
+
+        private InterruptingAwaitExecutor(boolean terminateAfterInterrupt) {
+            this.terminateAfterInterrupt = terminateAfterInterrupt;
+        }
+
+        @Override
+        public void shutdown() {
+            delegate.shutdown();
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            return delegate.shutdownNow();
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return delegate.isShutdown();
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return delegate.isTerminated();
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+            awaitTerminationCalls++;
+            if (awaitTerminationCalls == 1) {
+                throw new InterruptedException("controlled");
+            }
+            return terminateAfterInterrupt;
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            delegate.execute(command);
         }
     }
 }

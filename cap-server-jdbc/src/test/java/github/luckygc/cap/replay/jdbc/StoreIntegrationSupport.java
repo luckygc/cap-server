@@ -74,12 +74,23 @@ final class StoreIntegrationSupport {
                 future.cancel(true);
             }
             executor.shutdownNow();
-            try {
-                if (!executor.awaitTermination(timeout.toNanos(), TimeUnit.NANOSECONDS)) {
-                    cleanupFailure = concurrencyFailure("executor_not_terminated");
+            long cleanupDeadline = System.nanoTime() + timeout.toNanos();
+            boolean terminated = false;
+            while (!terminated) {
+                long remaining = remainingNanos(cleanupDeadline);
+                if (remaining == 0) {
+                    break;
                 }
-            } catch (InterruptedException exception) {
-                interrupted = true;
+                try {
+                    terminated = executor.awaitTermination(remaining, TimeUnit.NANOSECONDS);
+                } catch (InterruptedException exception) {
+                    interrupted = true;
+                    executor.shutdownNow();
+                }
+            }
+            if (!terminated) {
+                cleanupFailure = concurrencyFailure("executor_not_terminated");
+            } else if (interrupted) {
                 cleanupFailure = concurrencyFailure("concurrency_interrupted");
             }
             if (interrupted) {
