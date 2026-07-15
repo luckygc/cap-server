@@ -11,7 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** 使用本机 Caffeine 缓存原子消费 JWT 签名。 */
+/**
+ * 使用本机 Caffeine 缓存原子消费 JWT 签名，仅保证单 JVM 内的防重放。缓存采用硬容量，签名在 TTL 内不会提前淘汰；容量耗尽时抛出异常。默认容量为 100000，可配置范围为
+ * 1..10000000。
+ */
 public final class CaffeineNonceConsumer implements NonceConsumer {
 
     public static final long DEFAULT_MAXIMUM_SIZE = 100_000;
@@ -27,10 +30,12 @@ public final class CaffeineNonceConsumer implements NonceConsumer {
     private final long maximumSize;
     private final Ticker ticker;
 
+    /** 创建默认容量为 100000 的单 JVM 消费者。缓存采用硬容量，签名在 TTL 内不会提前淘汰，容量耗尽时抛出异常；可配置容量范围为 1..10000000。 */
     public CaffeineNonceConsumer() {
         this(DEFAULT_MAXIMUM_SIZE, Ticker.systemTicker());
     }
 
+    /** 创建指定硬容量的单 JVM 消费者。签名在 TTL 内不会提前淘汰，容量耗尽时抛出异常；容量允许范围为 1..10000000，默认值为 100000。 */
     public CaffeineNonceConsumer(long maximumSize) {
         this(maximumSize, Ticker.systemTicker());
     }

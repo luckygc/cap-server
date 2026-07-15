@@ -12,7 +12,12 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.sql.DataSource;
 
-/** 通过数据库唯一约束原子消费 challenge 签名。 */
+/**
+ * 通过数据库唯一约束原子消费 challenge 签名。
+ *
+ * <p>{@link DataSource#getConnection()} 每次必须返回独立且初始 {@code autoCommit=true}
+ * 的连接，不得返回事务感知代理绑定的共享连接。本消费者独立提交或回滚；{@link SQLException} 及其原始异常链会传播给受信宿主处理。
+ */
 public final class JdbcNonceConsumer implements NonceConsumer {
     private static final String DEFAULT_TABLE = "cap_consumed_nonces";
     private static final Duration MIN_TTL = Duration.ofMillis(1);
@@ -25,12 +30,18 @@ public final class JdbcNonceConsumer implements NonceConsumer {
     private final String insertSql;
     private final Clock clock;
 
-    /** 使用默认表创建消费者。 */
+    /**
+     * 使用默认表创建消费者。{@link DataSource#getConnection()} 每次必须返回独立且初始 {@code autoCommit=true}
+     * 的连接，不得返回事务感知代理绑定的共享连接；本消费者独立提交或回滚，并向受信宿主传播 {@link SQLException} 原始异常链。
+     */
     public JdbcNonceConsumer(DataSource dataSource, JdbcDialect dialect) {
         this(dataSource, dialect, DEFAULT_TABLE);
     }
 
-    /** 使用指定表创建消费者。 */
+    /**
+     * 使用指定表创建消费者。{@link DataSource#getConnection()} 每次必须返回独立且初始 {@code autoCommit=true}
+     * 的连接，不得返回事务感知代理绑定的共享连接；本消费者独立提交或回滚，并向受信宿主传播 {@link SQLException} 原始异常链。
+     */
     public JdbcNonceConsumer(DataSource dataSource, JdbcDialect dialect, String tableName) {
         this(dataSource, dialect, tableName, Clock.systemUTC());
     }

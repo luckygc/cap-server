@@ -89,6 +89,22 @@ class LettuceNonceConsumerTest {
     }
 
     @Test
+    @DisplayName("非整数毫秒 TTL 向上取整")
+    void shouldCeilFractionalMillisecondTtl() throws Exception {
+        AtomicLong ttlMillis = new AtomicLong();
+        LettuceNonceConsumer consumer =
+                new LettuceNonceConsumer(
+                        (key, actualTtl) -> {
+                            ttlMillis.set(actualTtl);
+                            return "OK";
+                        },
+                        "cap:nonce:");
+
+        assertThat(consumer.consume("abc", Duration.ofMillis(1).plusNanos(1))).isTrue();
+        assertThat(ttlMillis).hasValue(2L);
+    }
+
+    @Test
     @DisplayName("TTL 上限为二十四小时")
     void shouldCapTtlAtTwentyFourHours() throws Exception {
         AtomicLong ttlMillis = new AtomicLong();
@@ -101,6 +117,22 @@ class LettuceNonceConsumerTest {
                         "cap:nonce:");
 
         assertThat(consumer.consume("abc", Duration.ofDays(30))).isTrue();
+        assertThat(ttlMillis).hasValue(Duration.ofHours(24).toMillis());
+    }
+
+    @Test
+    @DisplayName("极大 TTL 安全限制为二十四小时")
+    void shouldCapExtremeTtlWithoutOverflow() throws Exception {
+        AtomicLong ttlMillis = new AtomicLong();
+        LettuceNonceConsumer consumer =
+                new LettuceNonceConsumer(
+                        (key, actualTtl) -> {
+                            ttlMillis.set(actualTtl);
+                            return "OK";
+                        },
+                        "cap:nonce:");
+
+        assertThat(consumer.consume("abc", Duration.ofSeconds(Long.MAX_VALUE))).isTrue();
         assertThat(ttlMillis).hasValue(Duration.ofHours(24).toMillis());
     }
 

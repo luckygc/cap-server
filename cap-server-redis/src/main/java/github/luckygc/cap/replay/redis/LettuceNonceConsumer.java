@@ -57,7 +57,8 @@ public final class LettuceNonceConsumer implements NonceConsumer {
         if (effectiveTtl.compareTo(MAX_TTL) > 0) {
             effectiveTtl = MAX_TTL;
         }
-        return effectiveTtl.toMillis();
+        long millis = effectiveTtl.toMillis();
+        return effectiveTtl.getNano() % 1_000_000 == 0 ? millis : millis + 1;
     }
 }
 
