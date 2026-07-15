@@ -16,7 +16,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
 const fixturePath = resolve(
   repositoryRoot,
-  "src/test/resources/fixtures/capjs-core-0.1.1/rsw.json",
+  "cap-server/src/test/resources/fixtures/capjs-core-0.1.1/rsw.json",
 );
 const upstreamRswPath = resolve(upstreamRoot, "core/src/rsw.js");
 const fixture = JSON.parse(await readFile(fixturePath, "utf8"));

@@ -24,6 +24,34 @@ class BuildLifecycleContractTest {
     }
 
     @Test
+    @DisplayName("fixture 工具从核心模块读取 RSW 向量")
+    void fixtureToolsReadRswFromCoreModule() throws Exception {
+        String generator =
+                Files.readString(
+                        RepositoryPaths.root().resolve("tools/fixtures/generate-rsw-fixture.mjs"));
+
+        assertThat(generator)
+                .contains(
+                        "\"cap-server/src/test/resources/fixtures/capjs-core-0.1.1/rsw.json\"",
+                        "tools/fixtures/generate-rsw-fixture.mjs using core/src/rsw.js "
+                                + "buildRswMinter().mint()");
+    }
+
+    @Test
+    @DisplayName("reactor 文档将核心聚焦测试限定到核心模块")
+    void reactorDocumentationTargetsCoreTests() throws Exception {
+        String compatibility =
+                Files.readString(RepositoryPaths.root().resolve("docs/protocol-compatibility.md"));
+
+        assertThat(compatibility)
+                .contains(
+                        "mvn -pl cap-server -am -Dcap.fixture.dir=\"$tmp/fixtures\" "
+                                + "-Dtest='*CompatibilityTest' test",
+                        "mvn -pl cap-server -am -Dcap.nodeChecks=true "
+                                + "-Dtest=InstrumentationGeneratorTest test");
+    }
+
+    @Test
     @DisplayName("widget E2E 仅由显式 Failsafe profile 执行")
     void widgetE2eIsOptIn() throws Exception {
         String parentPom = Files.readString(RepositoryPaths.root().resolve("pom.xml"));

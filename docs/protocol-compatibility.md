@@ -234,7 +234,7 @@ npm install capjs-core@0.1.1
 node "$repo/tools/fixtures/test-generate-capjs-core-fixtures.mjs"
 node "$repo/tools/fixtures/generate-capjs-core-fixtures.mjs" --output "$tmp/fixtures"
 cd "$repo"
-mise exec maven -- mvn -Dcap.fixture.dir="$tmp/fixtures" -Dtest='*CompatibilityTest' test
+mise exec maven -- mvn -pl cap-server -am -Dcap.fixture.dir="$tmp/fixtures" -Dtest='*CompatibilityTest' test
 ```
 
 `number-string-vectors.json` 的检查也是显式 opt-in：它由上述生成器写入临时目录，再由
@@ -258,7 +258,7 @@ node tools/fixtures/generate-format2-fixture.mjs --check "$CAP_UPSTREAM"
 额外的 instrumentation JavaScript 语法/执行检查需要 PATH 中的 Node 24，并保持显式 opt-in：
 
 ```bash
-mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
+mise exec maven -- mvn -pl cap-server -am -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
 ```
 
 真实 iframe 执行需要开发机已安装 Chromium 和 Playwright，不进入 Maven 默认生命周期。
