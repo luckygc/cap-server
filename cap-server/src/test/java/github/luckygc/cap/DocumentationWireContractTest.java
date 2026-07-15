@@ -22,8 +22,9 @@ class DocumentationWireContractTest {
     @Test
     @DisplayName("README 显式适配上游 snake_case 与 Java camelCase")
     void readmeDocumentsWireAdapterBoundary() throws IOException {
-        String readme = Files.readString(Path.of("README.md"));
-        String compatibility = Files.readString(Path.of("docs/protocol-compatibility.md"));
+        String readme = Files.readString(RepositoryPaths.root().resolve("README.md"));
+        String compatibility =
+                Files.readString(RepositoryPaths.root().resolve("docs/protocol-compatibility.md"));
 
         assertThat(readme)
                 .contains(
@@ -50,7 +51,9 @@ class DocumentationWireContractTest {
         try {
             Path classes = Files.createDirectories(temporaryDirectory.resolve("classes"));
             Path controller = temporaryDirectory.resolve("CapController.java");
-            Files.writeString(controller, firstJavaBlock(Files.readString(Path.of("README.md"))));
+            Files.writeString(
+                    controller,
+                    firstJavaBlock(Files.readString(RepositoryPaths.root().resolve("README.md"))));
             List<Path> annotations = writeSpringAnnotationStubs(temporaryDirectory);
             JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
             assertThat(compiler).isNotNull();

@@ -397,7 +397,10 @@ await writeFixture(
 
 const rswFixture = JSON.parse(
   await readFile(
-    resolve(repositoryRoot, "src/test/resources/fixtures/capjs-core-0.1.1/rsw.json"),
+    resolve(
+      repositoryRoot,
+      "cap-server/src/test/resources/fixtures/capjs-core-0.1.1/rsw.json",
+    ),
     "utf8",
   ),
 );

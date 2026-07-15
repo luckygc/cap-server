@@ -15,7 +15,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
 const fixturePath = resolve(
   repositoryRoot,
-  "src/test/resources/fixtures/capjs-core-0.1.1/format2.json",
+  "cap-server/src/test/resources/fixtures/capjs-core-0.1.1/format2.json",
 );
 const upstreamSourceDirectory = resolve(upstreamRoot, "core/src");
 const sourceNames = ["index.js", "crypto.js", "prng.js", "rsw.js", "instrumentation.js"];
@@ -73,7 +73,10 @@ export default {
 
   const rswFixture = JSON.parse(
     await readFile(
-      resolve(repositoryRoot, "src/test/resources/fixtures/capjs-core-0.1.1/rsw.json"),
+      resolve(
+        repositoryRoot,
+        "cap-server/src/test/resources/fixtures/capjs-core-0.1.1/rsw.json",
+      ),
       "utf8",
     ),
   );
@@ -225,7 +228,7 @@ export default {
     await readFile(
       resolve(
         repositoryRoot,
-        "src/test/resources/fixtures/capjs-core-0.1.1/format2-java.json",
+        "cap-server/src/test/resources/fixtures/capjs-core-0.1.1/format2-java.json",
       ),
       "utf8",
     ),

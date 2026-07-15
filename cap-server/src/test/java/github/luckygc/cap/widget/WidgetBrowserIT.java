@@ -73,7 +73,11 @@ class WidgetBrowserIT {
                     startDriver(
                             new ProcessBuilder(
                                     "node",
-                                    "tools/widget-e2e/run-widget-e2e.mjs",
+                                    repositoryRoot()
+                                            .resolve("tools/widget-e2e/run-widget-e2e.mjs")
+                                            .toAbsolutePath()
+                                            .normalize()
+                                            .toString(),
                                     "--npm-root",
                                     npmRoot.toAbsolutePath().toString(),
                                     "--base-url",
@@ -125,6 +129,18 @@ class WidgetBrowserIT {
         } catch (RuntimeException exception) {
             throw new IllegalStateException(driverFailure("category=property"));
         }
+    }
+
+    private static Path repositoryRoot() {
+        Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+        if (Files.isDirectory(workingDirectory.resolve("tools"))) {
+            return workingDirectory;
+        }
+        Path parent = workingDirectory.getParent();
+        if (parent != null && Files.isDirectory(parent.resolve("tools"))) {
+            return parent;
+        }
+        throw new IllegalStateException("repository root unavailable");
     }
 
     static Process startDriver(ProcessBuilder builder) {

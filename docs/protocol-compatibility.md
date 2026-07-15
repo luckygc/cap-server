@@ -195,7 +195,7 @@ solution。该 HTTP/JSON server 仅验证互操作，
 
 ## Fixture 来源与复核
 
-互操作 fixture 位于 `src/test/resources/fixtures/capjs-core-0.1.1/`：
+互操作 fixture 位于 `cap-server/src/test/resources/fixtures/capjs-core-0.1.1/`：
 
 | 文件 | 来源/用途 |
 | --- | --- |
@@ -272,7 +272,7 @@ npm init -y
 npm install playwright
 npx playwright install chromium
 node "$repo/tools/fixtures/check-instrumentation-browser.mjs" \
-  --fixture "$repo/src/test/resources/fixtures/capjs-core-0.1.1/generated/format1-instrumentation.json"
+  --fixture "$repo/cap-server/src/test/resources/fixtures/capjs-core-0.1.1/generated/format1-instrumentation.json"
 ```
 
 该入口先确认 options 和认证 metadata 都设置 `blockAutomatedBrowsers=true`，再在真实

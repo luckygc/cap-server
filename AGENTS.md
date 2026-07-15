@@ -9,11 +9,13 @@
 
 ## 仓库结构
 
-- `src/main/java/github/luckygc/cap/`：公开门面、选项、协议 records 和扩展接口。
-- `src/main/java/github/luckygc/cap/internal/`：默认门面及协议、加密、JSON、instrumentation、重放保护和 token 实现；不属于公开 API。
-- `src/main/java/github/luckygc/cap/utils/`：Format 1 协议兼容随机数辅助代码。
-- `src/test/java/`：JUnit 6（JUnit Jupiter）与 AssertJ 测试。
-- `src/test/resources/fixtures/capjs-core-0.1.1/`：锁定上游行为的互操作 fixture。
+- `cap-server/src/main/java/github/luckygc/cap/`：核心模块的公开门面、选项、协议 records 和扩展接口。
+- `cap-server/src/main/java/github/luckygc/cap/internal/`：默认门面及协议、加密、JSON、instrumentation、重放保护和 token 实现；不属于公开 API。
+- `cap-server/src/main/java/github/luckygc/cap/utils/`：Format 1 协议兼容随机数辅助代码。
+- `cap-server/src/test/java/`：核心模块的 JUnit 6（JUnit Jupiter）与 AssertJ 测试。
+- `cap-server/src/test/resources/fixtures/capjs-core-0.1.1/`：锁定上游行为的互操作 fixture。
+- `cap-server-jdbc/`：JDBC 防重放存储模块。
+- `cap-server-redis/`：Redis 防重放存储模块。
 - `tools/fixtures/`：需要 Node 24 和上游源码 checkout 的可选 fixture 复核工具。
 - `tools/widget-e2e/`：固定 npm artifact、驱动真实 Chromium 调用 Java 回环 HTTP 测试后端的可选 E2E 工具。
 - `docs/protocol-compatibility.md`：协议字段、失败码、加密 wire 与 fixture 来源。
@@ -28,8 +30,8 @@ mise exec maven -- mvn spotless:check
 mise exec maven -- mvn spotless:apply
 mise exec maven -- mvn test
 mise exec maven -- mvn verify
-mise exec maven -- mvn -Dtest=ProtocolSecurityTest test
-mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
+mise exec maven -- mvn -pl cap-server -am -Dtest=ProtocolSecurityTest test
+mise exec maven -- mvn -pl cap-server -am -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
 ```
 
 - `spotless:apply` 使用 Google Java Format AOSP 风格自动格式化 Java；不要手工绕过格式检查。
@@ -86,7 +88,7 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 
 ## 测试约定
 
-- 使用 JUnit 6（JUnit Jupiter）和 AssertJ，测试放在与生产包对应的 `src/test/java` 路径下。
+- 使用 JUnit 6（JUnit Jupiter）和 AssertJ，测试放在各模块与生产包对应的 `src/test/java` 路径下。
 - 测试类和方法命名沿用现有风格；`@DisplayName` 使用简洁中文描述行为。
 - 修复缺陷先添加能复现问题的回归测试；新增行为覆盖成功、失败、边界和必要的并发路径。
 - 协议变更必须使用 `capjs-core` 0.1.1 fixture 或直接上游 oracle 证明兼容，不能只让 Java 实现自洽。

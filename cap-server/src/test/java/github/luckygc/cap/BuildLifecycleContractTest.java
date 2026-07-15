@@ -3,19 +3,34 @@ package github.luckygc.cap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
-import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("Maven 测试生命周期契约")
 class BuildLifecycleContractTest {
     @Test
+    @DisplayName("核心坐标由三模块 reactor 保持")
+    void reactorPreservesCoreCoordinates() throws Exception {
+        String parentPom = Files.readString(RepositoryPaths.root().resolve("pom.xml"));
+        assertThat(parentPom)
+                .contains(
+                        "<artifactId>cap-server-parent</artifactId>",
+                        "<packaging>pom</packaging>",
+                        "<module>cap-server</module>",
+                        "<module>cap-server-jdbc</module>",
+                        "<module>cap-server-redis</module>");
+        assertThat(Files.readString(RepositoryPaths.root().resolve("cap-server/pom.xml")))
+                .contains("<artifactId>cap-server</artifactId>");
+    }
+
+    @Test
     @DisplayName("widget E2E 仅由显式 Failsafe profile 执行")
     void widgetE2eIsOptIn() throws Exception {
-        String pom = Files.readString(Path.of("pom.xml"));
+        String parentPom = Files.readString(RepositoryPaths.root().resolve("pom.xml"));
+        String pom = Files.readString(RepositoryPaths.root().resolve("cap-server/pom.xml"));
+        assertThat(parentPom).contains("<failsafe.version>3.5.6</failsafe.version>");
         assertThat(pom)
                 .contains(
-                        "<failsafe.version>3.5.6</failsafe.version>",
                         "<id>widget-e2e</id>",
                         "<artifactId>maven-failsafe-plugin</artifactId>",
                         "<goal>integration-test</goal>",
@@ -33,7 +48,7 @@ class BuildLifecycleContractTest {
     }
 
     private static void assertWidgetE2eDocumentation(String path) throws Exception {
-        assertThat(Files.readString(Path.of(path)))
+        assertThat(Files.readString(RepositoryPaths.root().resolve(path)))
                 .as(path)
                 .contains(
                         "-Pwidget-e2e",

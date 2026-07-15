@@ -81,7 +81,7 @@ export function randomInt(min, max) {
     process.stdout.write(`${JSON.stringify(actual, null, 2)}\n`);
   } else {
     const fixturePath = resolve(
-      "src/test/resources/fixtures/capjs-core-0.1.1/instrumentation.json",
+      "cap-server/src/test/resources/fixtures/capjs-core-0.1.1/instrumentation.json",
     );
     const expected = JSON.parse(await readFile(fixturePath, "utf8"));
     if (JSON.stringify(actual) !== JSON.stringify(expected)) {
