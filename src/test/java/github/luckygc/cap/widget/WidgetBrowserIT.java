@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -86,9 +87,7 @@ class WidgetBrowserIT {
                         new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 String errorOutput =
                         new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-                assertThat(process.exitValue())
-                        .as(driverFailure(safeDriverDiagnostic(errorOutput)))
-                        .isZero();
+                assertThat(process.exitValue()).as(driverExitFailure(errorOutput)).isZero();
                 assertThat(errorOutput).as("successful driver must not emit stderr").isEmpty();
                 assertThat(output.lines()).as("driver must emit one summary line").hasSize(1);
                 assertThat(summary(output)).containsExactlyInAnyOrderEntriesOf(EXPECTED_SUMMARY);
@@ -103,7 +102,7 @@ class WidgetBrowserIT {
                 assertThat(server.scenario("format2").lastChallengeFact())
                         .hasValue(new ChallengeFact("format2", false, List.of("rsw")));
                 assertThat(server.scenario("format2").lastRedeemFact())
-                        .hasValue(new RedeemFact(false, false, false, 1, "rsw"));
+                        .hasValue(new RedeemFact(false, false, false, 1, "rsw_exact"));
                 assertThat(server.scenario("format1").redeemCount()).hasValue(2);
                 assertThat(server.scenario("format1").lastReason()).hasValue("already_redeemed");
                 assertThat(server.scenario("strict").challengeCount()).hasPositiveValue();
@@ -121,7 +120,11 @@ class WidgetBrowserIT {
         if (value.isBlank()) {
             throw new IllegalStateException(driverFailure("category=property"));
         }
-        return Path.of(value);
+        try {
+            return Path.of(value);
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException(driverFailure("category=property"));
+        }
     }
 
     static Process startDriver(ProcessBuilder builder) {
@@ -134,6 +137,23 @@ class WidgetBrowserIT {
 
     static String driverFailure(String diagnostic) {
         return "widget E2E failed: " + diagnostic + System.lineSeparator() + SETUP_HINT;
+    }
+
+    static String driverExitFailure(String errorOutput) {
+        return driverFailure(safeDriverDiagnostic(errorOutput));
+    }
+
+    static String solutionShape(@Nullable Object solution) {
+        if (solution instanceof Number) {
+            return "number";
+        }
+        if (solution instanceof Map<?, ?> map
+                && map.size() == 1
+                && map.keySet().equals(Set.of("y"))
+                && map.get("y") instanceof String) {
+            return "rsw_exact";
+        }
+        return "other";
     }
 
     private static void assertSuccessfulScenario(Scenario scenario) {
@@ -459,14 +479,7 @@ class WidgetBrowserIT {
         static RedeemFact from(RedeemRequest request) {
             String shape = "empty";
             if (!request.solutions().isEmpty()) {
-                Object first = request.solutions().get(0);
-                if (first instanceof Number) {
-                    shape = "number";
-                } else if (first instanceof Map<?, ?> map && map.containsKey("y")) {
-                    shape = "rsw";
-                } else {
-                    shape = "other";
-                }
+                shape = solutionShape(request.solutions().get(0));
             }
             return new RedeemFact(
                     request.instr() != null,

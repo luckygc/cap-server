@@ -54,7 +54,7 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 
 - 默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不探测 Node 或 Chromium。
 - 显式 profile 缺少 `package-lock.json`、精确 version/resolved URL/integrity、Node、Chromium 或 artifact 文件时必须硬失败，不能静默 skip。
-- 空 `cap.widget.dir`、Node 启动、artifact 校验或 Chromium 启动失败时，错误显示固定类别，并附带使用临时目录安装上述精确版本、安装 Chromium 及传入 `-Dcap.widget.dir` 的可执行准备命令；固定诊断与 hint 不得回显本机路径或敏感值。
+- 空或非法 `cap.widget.dir`、Node 启动、artifact 校验或 Chromium 启动失败时，错误显示固定类别，并附带使用临时目录安装上述精确版本、安装 Chromium 及传入 `-Dcap.widget.dir` 的可执行准备命令；固定诊断与 hint 不得回显本机路径或敏感值。
 - E2E 在真实 Chromium 中只加载本地 widget/WASM，经真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay=`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截=`instr_automated_browser`；浏览器不得访问 CDN。
 - Java 测试仅在内存记录脱敏协议事实：challenge 类型、instrumentation 是否存在、Format 2 协议名顺序，以及 redeem 的 instrumentation flags、solution 数量和 shape；不得保存原始 challenge token、redeem body 或 solution。
 - STRICT 页面通过 init script 植入固定的标准自动化标记；按 iframe init 时 `documentElement` 尚为空计算，仍有 11 类稳定命中，使随机抽取 8 项的默认 instrumentation 检查必然命中；不得改用重试，也不得替换 production generator 或 transformer。

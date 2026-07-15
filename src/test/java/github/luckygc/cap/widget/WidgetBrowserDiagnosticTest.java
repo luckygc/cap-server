@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,19 @@ class WidgetBrowserDiagnosticTest {
     }
 
     @Test
+    @DisplayName("非法 npm 路径不回显输入且不保留 cause")
+    void invalidWidgetDirectoryIsSanitized() {
+        String invalidPath = "sensitive-marker\0local-path";
+
+        assertThatThrownBy(() -> WidgetBrowserIT.requireNpmRoot(invalidPath))
+                .isInstanceOf(IllegalStateException.class)
+                .hasNoCause()
+                .hasMessageContainingAll(SETUP_MARKERS.toArray(String[]::new))
+                .hasMessageNotContaining("sensitive-marker")
+                .hasMessageNotContaining("local-path");
+    }
+
+    @Test
     @DisplayName("Node 启动异常给出同一固定准备步骤")
     void nodeLaunchFailureShowsSetupHint() {
         ProcessBuilder missingNode =
@@ -58,13 +73,26 @@ class WidgetBrowserDiagnosticTest {
     }
 
     @Test
-    @DisplayName("artifact 与 Chromium 失败类别均附固定准备步骤")
-    void driverExitFailuresShowSetupHint() {
-        assertThat(WidgetBrowserIT.driverFailure("category=assets"))
-                .contains("category=assets")
+    @DisplayName("真实 driver stderr 经脱敏后附固定准备步骤")
+    void driverExitFailureCombinesSanitizedDiagnosticAndHint() {
+        String stderr = "widget-e2e scenario=driver phase=assets category=assets status=failed\n";
+
+        assertThat(WidgetBrowserIT.driverExitFailure(stderr))
+                .contains("scenario=driver phase=assets category=assets")
                 .contains(SETUP_MARKERS);
-        assertThat(WidgetBrowserIT.driverFailure("category=browser_launch"))
-                .contains("category=browser_launch")
-                .contains(SETUP_MARKERS);
+    }
+
+    @Test
+    @DisplayName("只有唯一字符串 y 字段才记录 exact RSW shape")
+    void rswShapeRequiresExactlyOneStringY() {
+        Map<String, Object> exact = Map.of("y", "abcd");
+        Map<String, Object> extra = Map.of("y", "abcd", "extra", true);
+        Map<String, Object> nullY = new LinkedHashMap<>();
+        nullY.put("y", null);
+
+        assertThat(WidgetBrowserIT.solutionShape(exact)).isEqualTo("rsw_exact");
+        assertThat(WidgetBrowserIT.solutionShape(extra)).isEqualTo("other");
+        assertThat(WidgetBrowserIT.solutionShape(nullY)).isEqualTo("other");
+        assertThat(WidgetBrowserIT.solutionShape(Map.of("y", 7))).isEqualTo("other");
     }
 }

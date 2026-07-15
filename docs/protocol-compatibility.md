@@ -173,7 +173,7 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不依赖 Node 或
 Chromium。显式 profile 严格校验 `package-lock.json` 中三个包的 version、resolved URL 和 integrity；
 缺 package-lock、精确 artifact、Node、Chromium 或 artifact 文件时硬失败，不能静默 skip。
-空 `cap.widget.dir`、Node 启动异常、artifact/lock 校验失败和 Chromium 启动失败均输出固定脱敏类别，
+空或非法 `cap.widget.dir`、Node 启动异常、artifact/lock 校验失败和 Chromium 启动失败均输出固定脱敏类别，
 并附上述精确版本安装、`npx playwright@1.52.0 install chromium` 和 `-Dcap.widget.dir` 的可执行准备
 步骤；固定诊断与 hint 不包含实际本机路径或敏感值。
 

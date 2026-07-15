@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   STRICT_403_CONSOLE_ERROR,
@@ -8,6 +13,55 @@ import {
   isExpectedStrictConsoleError,
   withDeadline,
 } from "./run-widget-e2e.mjs";
+import { EXPECTED_PACKAGES } from "./widget-assets.mjs";
+
+const DRIVER = fileURLToPath(new URL("./run-widget-e2e.mjs", import.meta.url));
+
+async function runDriver(root) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [
+        DRIVER,
+        "--npm-root",
+        root,
+        "--base-url",
+        "http://127.0.0.1:9",
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.once("error", reject);
+    child.once("close", (code, signal) => resolve({ code, signal, stdout, stderr }));
+  });
+}
+
+async function createDriverRoot(t, playwrightModule) {
+  const root = await mkdtemp(join(tmpdir(), "cap-widget-driver-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(
+    join(root, "package-lock.json"),
+    JSON.stringify({ packages: EXPECTED_PACKAGES }),
+  );
+  const artifacts = new Map([
+    ["node_modules/@cap.js/widget/cap.min.js", ""],
+    ["node_modules/@cap.js/wasm/browser/cap_wasm_bg.wasm", ""],
+    ["node_modules/playwright/index.mjs", playwrightModule],
+  ]);
+  for (const [artifact, contents] of artifacts) {
+    const path = join(root, artifact);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, contents);
+  }
+  return root;
+}
 
 test("failure diagnostic emits only fixed safe fields", () => {
   const diagnostic = formatFailureDiagnostic(
@@ -22,21 +76,36 @@ test("failure diagnostic emits only fixed safe fields", () => {
   assert.equal(diagnostic.includes("sensitive-value"), false);
 });
 
-test("prerequisite failures use stable actionable categories", () => {
-  assert.equal(
-    formatFailureDiagnostic(
-      { scenario: "driver", phase: "assets" },
-      new Error("package-lock path=/sensitive/local/path"),
-    ),
-    "widget-e2e scenario=driver phase=assets category=assets status=failed\n",
+test("driver CLI categorizes a missing lock as assets", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "cap-widget-driver-missing-lock-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  assert.deepEqual(await runDriver(root), {
+    code: 1,
+    signal: null,
+    stdout: "",
+    stderr:
+      "widget-e2e scenario=driver phase=assets category=assets status=failed\n",
+  });
+});
+
+test("driver CLI sanitizes a browser launch failure", async (t) => {
+  const sensitive = "/sensitive/local/browser-path";
+  const root = await createDriverRoot(
+    t,
+    `export const chromium = { launch: async () => { throw new Error(${JSON.stringify(sensitive)}); } };`,
   );
-  assert.equal(
-    formatFailureDiagnostic(
-      { scenario: "driver", phase: "browser_launch" },
-      new Error("browser executable=/sensitive/local/path"),
-    ),
-    "widget-e2e scenario=driver phase=browser_launch category=browser_launch status=failed\n",
-  );
+
+  const result = await runDriver(root);
+
+  assert.deepEqual(result, {
+    code: 1,
+    signal: null,
+    stdout: "",
+    stderr:
+      "widget-e2e scenario=driver phase=browser_launch category=browser_launch status=failed\n",
+  });
+  assert.equal(result.stderr.includes(sensitive), false);
 });
 
 test("strict marker installer covers every random eight-check sample", () => {
