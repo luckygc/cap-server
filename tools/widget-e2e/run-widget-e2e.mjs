@@ -41,7 +41,9 @@ function mark(scenario, phase) {
   diagnostic.phase = phase;
 }
 
-function errorCategory(error) {
+function errorCategory(failure, error) {
+  if (failure.phase === "assets") return "assets";
+  if (failure.phase === "browser_launch") return "browser_launch";
   if (error instanceof Error && error.message.endsWith("scenario timed out")) {
     return "deadline";
   }
@@ -65,7 +67,7 @@ export function formatFailureDiagnostic(failure, error) {
     ? failure.scenario
     : "driver";
   const phase = SAFE_PHASES.has(failure.phase) ? failure.phase : "startup";
-  return `widget-e2e scenario=${scenario} phase=${phase} category=${errorCategory(error)} status=failed\n`;
+  return `widget-e2e scenario=${scenario} phase=${phase} category=${errorCategory(failure, error)} status=failed\n`;
 }
 export const STRICT_403_CONSOLE_ERROR =
   "Failed to load resource: the server responded with a status of 403 (Forbidden)";
@@ -277,7 +279,9 @@ async function solveStrict(context, baseUrl) {
     mark("strict", "assert_response");
     check(response.status() === 403, "strict redeem did not return 403");
     check(
-      body.reason === "instr_automated_browser" && body.instr_error === true,
+      body.reason === "instr_automated_browser" &&
+        body.error === body.reason &&
+        body.instr_error === true,
       "strict backend reason mismatch",
     );
   });

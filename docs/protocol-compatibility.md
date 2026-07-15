@@ -173,6 +173,9 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不依赖 Node 或
 Chromium。显式 profile 严格校验 `package-lock.json` 中三个包的 version、resolved URL 和 integrity；
 缺 package-lock、精确 artifact、Node、Chromium 或 artifact 文件时硬失败，不能静默 skip。
+空 `cap.widget.dir`、Node 启动异常、artifact/lock 校验失败和 Chromium 启动失败均输出固定脱敏类别，
+并附上述精确版本安装、`npx playwright@1.52.0 install chromium` 和 `-Dcap.widget.dir` 的可执行准备
+步骤；固定诊断与 hint 不包含实际本机路径或敏感值。
 
 测试在真实 Chromium 中只加载回环 server 提供的本地 widget/WASM，不访问 CDN；请求经真实 loopback
 HTTP 到达 Java `Cap`。场景覆盖 Format 1 成功、浏览器原始 redeem body 重放返回
@@ -184,7 +187,10 @@ STRICT 的后端 403 为 `reason/error=instr_automated_browser` 且 `instr_error
 检查随机选取 8 类，未命中类只有 7 类，因此任意子集必有命中；不需要重试，也未替换 production
 transformer。`instr_blocked` event code 只属于 Format 1 instrumentation 分支。
 
-测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。该 HTTP/JSON server 仅验证互操作，
+测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。
+Java server 只在内存保留 challenge 类型、instrumentation 存在性、Format 2 协议名顺序，以及 redeem
+的 instrumentation flags、solution 数量与 shape 等脱敏事实，不保存原始 token、redeem body 或
+solution。该 HTTP/JSON server 仅验证互操作，
 不改变库的职责：生产应用仍须自行提供 Web 框架、JSON databind、认证、CORS、CSRF、实际端点与边界策略。
 
 ## Fixture 来源与复核

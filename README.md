@@ -272,7 +272,10 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 
 默认 `mvn test` / `mvn verify` 不执行也不 skip 浏览器 IT，不需要 Node 或 Chromium。显式 profile
 会严格校验 `package-lock.json` 中三个包的 version、resolved URL 和 integrity；缺少精确 artifact、
-Node 或 Chromium 时硬失败，不会静默 skip。浏览器只加载测试 server 提供的本地 widget/WASM，
+Node 或 Chromium 时硬失败，不会静默 skip。
+相关失败只显示固定脱敏类别，并附精确依赖、Chromium 与 `-Dcap.widget.dir` 的可执行准备命令；不会
+回显实际本机路径。Java server 只保留 challenge/redeem 的类型、flags、协议顺序和 solution shape
+等脱敏事实，不保存原始 token、redeem body 或 solution。浏览器只加载测试 server 提供的本地 widget/WASM，
 不访问 CDN，并通过真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay 返回
 `already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截返回
 `instr_automated_browser`。STRICT 页面预先植入覆盖默认随机抽样检查的标准自动化标记；即使 iframe

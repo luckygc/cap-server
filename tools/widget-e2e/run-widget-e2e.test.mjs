@@ -22,6 +22,23 @@ test("failure diagnostic emits only fixed safe fields", () => {
   assert.equal(diagnostic.includes("sensitive-value"), false);
 });
 
+test("prerequisite failures use stable actionable categories", () => {
+  assert.equal(
+    formatFailureDiagnostic(
+      { scenario: "driver", phase: "assets" },
+      new Error("package-lock path=/sensitive/local/path"),
+    ),
+    "widget-e2e scenario=driver phase=assets category=assets status=failed\n",
+  );
+  assert.equal(
+    formatFailureDiagnostic(
+      { scenario: "driver", phase: "browser_launch" },
+      new Error("browser executable=/sensitive/local/path"),
+    ),
+    "widget-e2e scenario=driver phase=browser_launch category=browser_launch status=failed\n",
+  );
+});
+
 test("strict marker installer covers every random eight-check sample", () => {
   const attributes = new Set();
   const navigator = { mimeTypes: [] };

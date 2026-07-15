@@ -7,7 +7,9 @@ import com.sun.net.httpserver.HttpServer;
 import github.luckygc.cap.Cap;
 import github.luckygc.cap.CapProfile;
 import github.luckygc.cap.CapProtocol;
+import github.luckygc.cap.ChallengeResponse;
 import github.luckygc.cap.InstrumentationOptions;
+import github.luckygc.cap.RedeemRequest;
 import github.luckygc.cap.RedeemResult;
 import github.luckygc.cap.RswKeyPair;
 import github.luckygc.cap.internal.json.ProtocolJsonCodec;
@@ -37,6 +39,11 @@ class WidgetBrowserIT {
     private static final int MAX_BODY_BYTES = 64 * 1024;
     private static final Duration DRIVER_TIMEOUT = Duration.ofMinutes(3);
     private static final Duration PROCESS_EXIT_TIMEOUT = Duration.ofSeconds(5);
+    private static final String SETUP_HINT =
+            "Prepare widget E2E: repo=$(pwd); tmp=$(mktemp -d); cd \"$tmp\"; npm init -y; "
+                    + "npm install --save-exact @cap.js/widget@0.1.56 @cap.js/wasm@0.0.7 "
+                    + "playwright@1.52.0; npx playwright@1.52.0 install chromium; cd \"$repo\"; "
+                    + "mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir=\"$tmp\" verify";
     private static final Pattern SAFE_DRIVER_DIAGNOSTIC =
             Pattern.compile(
                     "widget-e2e scenario=([a-z0-9_]+) phase=([a-z0-9_]+) "
@@ -52,30 +59,35 @@ class WidgetBrowserIT {
     @Test
     @DisplayName("真实 Chromium 覆盖协议成功、重放和自动化拦截")
     void widgetCallsJavaBackendOverHttp() throws Exception {
-        String npmRoot = System.getProperty("cap.widget.dir", "");
-        assertThat(npmRoot).as("cap.widget.dir must be non-empty").isNotBlank();
+        Path npmRoot = requireNpmRoot(System.getProperty("cap.widget.dir", ""));
 
-        try (WidgetServer server = new WidgetServer(Path.of(npmRoot))) {
+        WidgetServer widgetServer;
+        try {
+            widgetServer = new WidgetServer(npmRoot);
+        } catch (IOException | RuntimeException exception) {
+            throw new IllegalStateException(driverFailure("category=assets"), exception);
+        }
+        try (WidgetServer server = widgetServer) {
             Process process =
-                    new ProcessBuilder(
+                    startDriver(
+                            new ProcessBuilder(
                                     "node",
                                     "tools/widget-e2e/run-widget-e2e.mjs",
                                     "--npm-root",
-                                    Path.of(npmRoot).toAbsolutePath().toString(),
+                                    npmRoot.toAbsolutePath().toString(),
                                     "--base-url",
-                                    server.baseUrl())
-                            .start();
+                                    server.baseUrl()));
             Map<Long, ProcessHandle> observedDescendants = new LinkedHashMap<>();
             try {
                 boolean finished = awaitDriver(process, observedDescendants);
-                assertThat(finished).as("widget E2E driver timed out").isTrue();
+                assertThat(finished).as(driverFailure("category=deadline")).isTrue();
 
                 String output =
                         new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 String errorOutput =
                         new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
                 assertThat(process.exitValue())
-                        .as("widget E2E driver failed: %s", safeDriverDiagnostic(errorOutput))
+                        .as(driverFailure(safeDriverDiagnostic(errorOutput)))
                         .isZero();
                 assertThat(errorOutput).as("successful driver must not emit stderr").isEmpty();
                 assertThat(output.lines()).as("driver must emit one summary line").hasSize(1);
@@ -84,11 +96,19 @@ class WidgetBrowserIT {
                 assertSuccessfulScenario(server.scenario("format1"));
                 assertSuccessfulScenario(server.scenario("instrumented"));
                 assertSuccessfulScenario(server.scenario("format2"));
+                assertThat(server.scenario("instrumented").lastChallengeFact())
+                        .hasValue(new ChallengeFact("format1", true, List.of()));
+                assertThat(server.scenario("instrumented").lastRedeemFact())
+                        .hasValue(new RedeemFact(true, false, false, 1, "number"));
+                assertThat(server.scenario("format2").lastChallengeFact())
+                        .hasValue(new ChallengeFact("format2", false, List.of("rsw")));
+                assertThat(server.scenario("format2").lastRedeemFact())
+                        .hasValue(new RedeemFact(false, false, false, 1, "rsw"));
                 assertThat(server.scenario("format1").redeemCount()).hasValue(2);
                 assertThat(server.scenario("format1").lastReason()).hasValue("already_redeemed");
                 assertThat(server.scenario("strict").challengeCount()).hasPositiveValue();
                 assertThat(server.scenario("strict").redeemCount()).hasPositiveValue();
-                assertThat(server.scenario("strict").lastRedeem().get()).isNotEmpty();
+                assertThat(server.scenario("strict").lastRedeemFact().get()).isNotNull();
                 assertThat(server.scenario("strict").lastReason())
                         .hasValue("instr_automated_browser");
             } finally {
@@ -97,10 +117,30 @@ class WidgetBrowserIT {
         }
     }
 
+    static Path requireNpmRoot(String value) {
+        if (value.isBlank()) {
+            throw new IllegalStateException(driverFailure("category=property"));
+        }
+        return Path.of(value);
+    }
+
+    static Process startDriver(ProcessBuilder builder) {
+        try {
+            return builder.start();
+        } catch (IOException exception) {
+            throw new IllegalStateException(driverFailure("category=node_launch"), exception);
+        }
+    }
+
+    static String driverFailure(String diagnostic) {
+        return "widget E2E failed: " + diagnostic + System.lineSeparator() + SETUP_HINT;
+    }
+
     private static void assertSuccessfulScenario(Scenario scenario) {
         assertThat(scenario.challengeCount()).hasPositiveValue();
         assertThat(scenario.redeemCount()).hasPositiveValue();
-        assertThat(scenario.lastRedeem().get()).isNotEmpty();
+        assertThat(scenario.lastChallengeFact().get()).isNotNull();
+        assertThat(scenario.lastRedeemFact().get()).isNotNull();
     }
 
     private static Map<String, String> summary(String output) {
@@ -305,7 +345,9 @@ class WidgetBrowserIT {
             }
             if (segments[2].equals("challenge")) {
                 scenario.challengeCount().incrementAndGet();
-                sendJson(exchange, 200, adapter.encodeChallenge(scenario.cap().createChallenge()));
+                ChallengeResponse response = scenario.cap().createChallenge();
+                scenario.lastChallengeFact().set(ChallengeFact.from(response));
+                sendJson(exchange, 200, adapter.encodeChallenge(response));
                 return;
             }
             if (!segments[2].equals("redeem")) {
@@ -318,10 +360,11 @@ class WidgetBrowserIT {
         private void redeem(HttpExchange exchange, Scenario scenario, byte[] body)
                 throws IOException {
             scenario.redeemCount().incrementAndGet();
-            scenario.lastRedeem().set(body.clone());
             RedeemResult result;
             try {
-                result = scenario.cap().redeem(adapter.decodeRedeem(body));
+                RedeemRequest request = adapter.decodeRedeem(body);
+                scenario.lastRedeemFact().set(RedeemFact.from(request));
+                result = scenario.cap().redeem(request);
             } catch (RuntimeException exception) {
                 sendJson(exchange, 400, INVALID_BODY);
                 return;
@@ -378,14 +421,59 @@ class WidgetBrowserIT {
             AtomicInteger challengeCount,
             AtomicInteger redeemCount,
             AtomicReference<@Nullable String> lastReason,
-            AtomicReference<byte @Nullable []> lastRedeem) {
+            AtomicReference<@Nullable ChallengeFact> lastChallengeFact,
+            AtomicReference<@Nullable RedeemFact> lastRedeemFact) {
         Scenario(Cap cap) {
             this(
                     cap,
                     new AtomicInteger(),
                     new AtomicInteger(),
                     new AtomicReference<>(),
+                    new AtomicReference<>(),
                     new AtomicReference<>());
+        }
+    }
+
+    private record ChallengeFact(
+            String type, boolean instrumentationPresent, List<String> protocols) {
+        static ChallengeFact from(ChallengeResponse response) {
+            if (response instanceof ChallengeResponse.Format1 format1) {
+                return new ChallengeFact("format1", format1.instrumentation() != null, List.of());
+            }
+            ChallengeResponse.Format2 format2 = (ChallengeResponse.Format2) response;
+            return new ChallengeFact(
+                    "format2",
+                    false,
+                    format2.challenges().stream()
+                            .map(ChallengeResponse.ProtocolChallenge::protocol)
+                            .toList());
+        }
+    }
+
+    private record RedeemFact(
+            boolean instrumentationPresent,
+            boolean instrumentationBlocked,
+            boolean instrumentationTimedOut,
+            int solutionCount,
+            String firstSolutionShape) {
+        static RedeemFact from(RedeemRequest request) {
+            String shape = "empty";
+            if (!request.solutions().isEmpty()) {
+                Object first = request.solutions().get(0);
+                if (first instanceof Number) {
+                    shape = "number";
+                } else if (first instanceof Map<?, ?> map && map.containsKey("y")) {
+                    shape = "rsw";
+                } else {
+                    shape = "other";
+                }
+            }
+            return new RedeemFact(
+                    request.instr() != null,
+                    request.instrBlocked(),
+                    request.instrTimeout(),
+                    request.solutions().size(),
+                    shape);
         }
     }
 }
