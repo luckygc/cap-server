@@ -154,6 +154,36 @@ instrumentation 类失败在核心 API 中的 `instrError` 为 `true`，Web adap
 `instr_error=true`；其他失败为 `false`。Format 2 已通过 JWT 但缺失或结构损坏的认证元数据统一
 映射为 `invalid_token`。
 
+## 真实 widget E2E
+
+可选 E2E 固定 `@cap.js/widget@0.1.56`、`@cap.js/wasm@0.0.7` 和
+`playwright@1.52.0`，在仓库外准备精确 npm 环境后运行：
+
+```bash
+repo=$(pwd)
+tmp=$(mktemp -d)
+cd "$tmp"
+npm init -y
+npm install --save-exact @cap.js/widget@0.1.56 @cap.js/wasm@0.0.7 playwright@1.52.0
+npx playwright install chromium
+cd "$repo"
+mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
+```
+
+默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不依赖 Node 或
+Chromium。显式 profile 严格校验 `package-lock.json` 中三个包的 version、resolved URL 和 integrity；
+缺 package-lock、精确 artifact、Node、Chromium 或 artifact 文件时硬失败，不能静默 skip。
+
+测试在真实 Chromium 中只加载回环 server 提供的本地 widget/WASM，不访问 CDN；请求经真实 loopback
+HTTP 到达 Java `Cap`。场景覆盖 Format 1 成功、浏览器原始 redeem body 重放返回
+`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截。
+STRICT 的后端 403 为 `reason/error=instr_automated_browser` 且 `instr_error=true`；固定 widget 的
+`solve()` rejection message 为 `instr_automated_browser`，error event code 是其统一映射
+`invalid_solution`。`instr_blocked` event code 只属于 Format 1 instrumentation 分支。
+
+测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。该 HTTP/JSON server 仅验证互操作，
+不改变库的职责：生产应用仍须自行提供 Web 框架、JSON databind、认证、CORS、CSRF、实际端点与边界策略。
+
 ## Fixture 来源与复核
 
 互操作 fixture 位于 `src/test/resources/fixtures/capjs-core-0.1.1/`：

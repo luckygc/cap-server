@@ -15,6 +15,7 @@
 - `src/test/java/`：JUnit 6（JUnit Jupiter）与 AssertJ 测试。
 - `src/test/resources/fixtures/capjs-core-0.1.1/`：锁定上游行为的互操作 fixture。
 - `tools/fixtures/`：需要 Node 24 和上游源码 checkout 的可选 fixture 复核工具。
+- `tools/widget-e2e/`：固定 npm artifact、驱动真实 Chromium 调用 Java 回环 HTTP 测试后端的可选 E2E 工具。
 - `docs/protocol-compatibility.md`：协议字段、失败码、加密 wire 与 fixture 来源。
 
 ## 常用命令
@@ -37,6 +38,24 @@ mise exec maven -- mvn -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest
 - 使用 `-Dtest=类名` 或 `-Dtest=类名#方法名` 运行聚焦测试。
 - 常规 `test` / `verify` 只要求 Java 17+，不依赖 PATH 中的 Node。
 - `cap.nodeChecks=true` 会额外用 PATH 中的 Node 24 检查 instrumentation JavaScript 语法和运行语义。
+
+真实 widget E2E 必须显式启用，并在仓库外准备固定依赖：
+
+```bash
+repo=$(pwd)
+tmp=$(mktemp -d)
+cd "$tmp"
+npm init -y
+npm install --save-exact @cap.js/widget@0.1.56 @cap.js/wasm@0.0.7 playwright@1.52.0
+npx playwright install chromium
+cd "$repo"
+mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
+```
+
+- 默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不探测 Node 或 Chromium。
+- 显式 profile 缺少 `package-lock.json`、精确 version/resolved URL/integrity、Node、Chromium 或 artifact 文件时必须硬失败，不能静默 skip。
+- E2E 在真实 Chromium 中只加载本地 widget/WASM，经真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay=`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截=`instr_automated_browser`；浏览器不得访问 CDN。
+- E2E 输出不得包含 secret、JWT、solution、业务 token 或 tokenKey。测试 server 只验证互操作；库仍不提供 Web 框架、JSON databind、认证、CORS 或 CSRF，实际端点与边界策略由宿主应用负责。
 
 ## 代码约定
 

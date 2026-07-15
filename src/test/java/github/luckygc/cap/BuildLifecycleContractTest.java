@@ -23,4 +23,24 @@ class BuildLifecycleContractTest {
         assertThat(pom.indexOf("<artifactId>maven-failsafe-plugin</artifactId>"))
                 .isGreaterThan(pom.indexOf("<profiles>"));
     }
+
+    @Test
+    @DisplayName("widget E2E 文档固定依赖与失败语义")
+    void widgetE2eDocumentationIsComplete() throws Exception {
+        assertWidgetE2eDocumentation("AGENTS.md");
+        assertWidgetE2eDocumentation("README.md");
+        assertWidgetE2eDocumentation("docs/protocol-compatibility.md");
+    }
+
+    private static void assertWidgetE2eDocumentation(String path) throws Exception {
+        assertThat(Files.readString(Path.of(path)))
+                .as(path)
+                .contains(
+                        "-Pwidget-e2e",
+                        "-Dcap.widget.dir",
+                        "@cap.js/widget@0.1.56",
+                        "@cap.js/wasm@0.0.7",
+                        "playwright@1.52.0",
+                        "instr_automated_browser");
+    }
 }

@@ -256,6 +256,30 @@ mise exec maven -- mvn verify
 常规构建只需要 Java 17+。Node 24 仅用于显式启用的上游 fixture / JavaScript 语义复核，
 详见协议兼容性文档。
 
+真实 widget E2E 是显式 opt-in 测试。它固定 `@cap.js/widget@0.1.56`、
+`@cap.js/wasm@0.0.7` 和 `playwright@1.52.0`，准备与运行命令如下：
+
+```bash
+repo=$(pwd)
+tmp=$(mktemp -d)
+cd "$tmp"
+npm init -y
+npm install --save-exact @cap.js/widget@0.1.56 @cap.js/wasm@0.0.7 playwright@1.52.0
+npx playwright install chromium
+cd "$repo"
+mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
+```
+
+默认 `mvn test` / `mvn verify` 不执行也不 skip 浏览器 IT，不需要 Node 或 Chromium。显式 profile
+会严格校验 `package-lock.json` 中三个包的 version、resolved URL 和 integrity；缺少精确 artifact、
+Node 或 Chromium 时硬失败，不会静默 skip。浏览器只加载测试 server 提供的本地 widget/WASM，
+不访问 CDN，并通过真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay 返回
+`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截返回
+`instr_automated_browser`。测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。
+
+这个回环 server 只用于互操作验证，不是可复用的生产 Web 层。本库仍不提供 Web 框架、JSON databind、
+认证、CORS 或 CSRF；宿主应用必须实现真实 challenge/redeem 端点以及认证和边界策略。
+
 ## 许可证
 
 Apache License 2.0

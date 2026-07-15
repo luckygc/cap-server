@@ -66,8 +66,8 @@ Node 脚本从传入 npm 项目解析 Playwright，从该项目的 `node_modules
 
 脚本连接 Java 测试传入的 base URL，启动 headless Chromium。每个场景新建页面，调用 widget 的
 `solve()`，监听 `solve` 或 `error` 事件，并以 JSON 行把结果返回 JUnit。浏览器控制台错误、页面错误、
-请求失败或超时均导致测试失败；STRICT blocked 场景仅允许与预期 `instr_blocked` 事件对应的
-widget console error，其他未声明错误仍失败。
+请求失败或超时均导致测试失败；STRICT blocked 场景仅允许 Chromium 对预期 403 产生的一次固定资源
+console error，其他未声明错误仍失败。
 
 所有资源由回环 HTTP server 本地提供；测试不在浏览器运行期间访问 CDN。
 
@@ -86,7 +86,11 @@ widget console error，其他未声明错误仍失败。
 9. JUnit 校验浏览器结果与服务端记录。
 
 STRICT blocked 路径在第 6 步发送 Format 2 `{blocked:true}` solution，Java 返回
-`instr_automated_browser`；Playwright 校验 widget 发出的错误事件和服务端 reason。
+`instr_automated_browser`；Playwright 校验后端 403 的 `reason/error=instr_automated_browser` 和
+`instr_error=true`。真实 `@cap.js/widget@0.1.56` 证明原方案中“STRICT error event code 为
+`instr_blocked`”的假设不成立：前端 `solve()` rejection message 为 `instr_automated_browser`，error
+event code 经上游统一映射为 `invalid_solution`；`instr_blocked` event code 只属于 Format 1
+instrumentation 分支。此处以真实 artifact 行为修正原方案。
 
 ## 错误处理与资源限制
 

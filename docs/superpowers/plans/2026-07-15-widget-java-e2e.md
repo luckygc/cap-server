@@ -339,8 +339,11 @@ server 仅在内存记录各场景调用次数、最后 reason 和最后 redeem 
 
 对 format1/instrumented/format2 分别创建 page、监听真实 redeem request、调用 solve，断言 solve event、
 非空 token 和 `input[name=cap-token]` 值一致。将捕获的 format1 `postData()` 原样再次 POST，断言
-403 + `already_redeemed`。strict 捕获 solve rejection，断言 error code `instr_blocked`，并等待 redeem
-response 的 `instr_automated_browser`/`instr_error=true`。只有 strict 允许对应 `[instr_blocked]`
+403 + `already_redeemed`。原计划要求 strict 断言 error code `instr_blocked`；真实
+`@cap.js/widget@0.1.56` 已推翻该假设，实施时修正为：等待 redeem response 的
+`reason/error=instr_automated_browser` 与 `instr_error=true`，断言 solve rejection message 为
+`instr_automated_browser`、error event code 为上游统一映射 `invalid_solution`。`instr_blocked` event
+code 只属于 Format 1 instrumentation 分支。strict 只允许 Chromium 对预期 403 产生的一次固定资源
 console error；其他 console error、pageerror、requestfailed、timeout 都失败。
 
 stdout 只输出：
