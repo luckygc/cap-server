@@ -19,6 +19,7 @@
 - `tools/fixtures/`：需要 Node 24 和上游源码 checkout 的可选 fixture 复核工具。
 - `tools/widget-e2e/`：固定 npm artifact、驱动真实 Chromium 调用 Java 回环 HTTP 测试后端的可选 E2E 工具。
 - `docs/protocol-compatibility.md`：协议字段、失败码、加密 wire 与 fixture 来源。
+- `docs/replay-storage.md`：防重放存储选择、JDBC 迁移与清理 SQL、Redis 运行边界。
 
 ## 常用命令
 
@@ -31,15 +32,23 @@ mise exec maven -- mvn spotless:apply
 mise exec maven -- mvn test
 mise exec maven -- mvn verify
 mise exec maven -- mvn -pl cap-server -am -Dtest=ProtocolSecurityTest test
+mise exec maven -- mvn -pl cap-server-jdbc -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=JdbcNonceConsumerTest test
+mise exec maven -- mvn -pl cap-server-redis -am -Dsurefire.failIfNoSpecifiedTests=false -Dtest=LettuceNonceConsumerTest test
 mise exec maven -- mvn -pl cap-server -am -Dcap.nodeChecks=true -Dtest=InstrumentationGeneratorTest test
+mise exec maven -- mvn -Pstore-integration verify
 ```
 
 - `spotless:apply` 使用 Google Java Format AOSP 风格自动格式化 Java；不要手工绕过格式检查。
 - `test` 必须实际执行测试，不允许出现 `Tests are skipped.`。
 - `verify` 必须通过 Spotless、全部测试和打包。
 - 使用 `-Dtest=类名` 或 `-Dtest=类名#方法名` 运行聚焦测试。
-- 常规 `test` / `verify` 只要求 Java 17+，不依赖 PATH 中的 Node。
+- 常规 `test` / `verify` 只要求 Java 17+，不依赖 PATH 中的 Node、Docker、数据库或 Redis；不执行也不 skip `*StoreIT` 和 `WidgetBrowserIT`。
 - `cap.nodeChecks=true` 会额外用 PATH 中的 Node 24 检查 instrumentation JavaScript 语法和运行语义。
+- `-Pstore-integration` 是显式 Docker profile，使用 Testcontainers 运行 PostgreSQL、MySQL、MariaDB 和 Redis 真实存储 IT；Docker 不可用时必须硬失败，不能静默 skip。
+
+模块依赖保持单向：`cap-server-jdbc` 只依赖核心 `cap-server` 和 Java JDBC API，不绑定连接池或数据库
+驱动；`cap-server-redis` 只依赖核心模块与 Lettuce。数据库驱动和 Testcontainers 仅属于显式真实存储
+测试。核心模块不得依赖 JDBC、Lettuce、数据库驱动或 Testcontainers。
 
 真实 widget E2E 必须显式启用，并在仓库外准备固定依赖：
 
@@ -81,6 +90,8 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 - `protocols(...)` 的 Format 2 语义与上游一致：空参数回退为 RSW，重复协议按输入顺序保留，null 数组或元素非法。
 - challenge JWT 使用 HS256；Format 2 元数据 AES-GCM key 为 `HMAC-SHA256(secret, "cap:fmt2-v1")`，无 AAD，wire 为 `iv || tag || ciphertext`。Format 1 instrumentation 使用 info `cap:enc-v1`。
 - 默认 Caffeine nonce consumer 仅保证单 JVM 原子消费；集群必须配置共享、原子的 `NonceConsumer`。
+- JDBC `DataSource` 每次必须返回独立、`autoCommit=true` 且不绑定宿主事务的连接；迁移与定时清理由宿主应用负责。
+- Lettuce commands、连接或连接池及超时由调用方拥有；外部存储失败必须 fail closed，不得回退到 Caffeine。
 - 防重放 key 是 challenge JWT 签名的十六进制，成功消费后直到 challenge 剩余 TTL 到期都应拒绝重放。
 - 默认兑换 token 使用 `token` / `tokenKey` 分离模型；只保存 `tokenKey`，不得记录或持久化明文 token。
 - 不降低随机数、哈希、JWT、AES-GCM 或 token 校验强度，不在日志、异常、事件或失败响应中暴露 secret、token、solution、签名或内部摘要。

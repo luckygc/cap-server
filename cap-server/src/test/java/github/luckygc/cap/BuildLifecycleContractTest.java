@@ -109,6 +109,45 @@ class BuildLifecycleContractTest {
     }
 
     @Test
+    @DisplayName("防重放存储文档覆盖模块、迁移与部署边界")
+    void replayStorageDocumentationIsComplete() throws Exception {
+        String readme = Files.readString(RepositoryPaths.root().resolve("README.md"));
+        String replayStorage =
+                Files.readString(RepositoryPaths.root().resolve("docs/replay-storage.md"));
+        String compatibility =
+                Files.readString(RepositoryPaths.root().resolve("docs/protocol-compatibility.md"));
+        String agents = Files.readString(RepositoryPaths.root().resolve("AGENTS.md"));
+
+        assertThat(readme)
+                .contains(
+                        "cap-server-jdbc",
+                        "cap-server-redis",
+                        "JdbcNonceConsumer",
+                        "LettuceNonceConsumer",
+                        "new JdbcNonceConsumer(dataSource, JdbcDialect.POSTGRESQL)",
+                        "new LettuceNonceConsumer(connection.sync())");
+        assertThat(replayStorage)
+                .contains(
+                        "cap_consumed_nonces",
+                        "PRIMARY KEY",
+                        "DELETE FROM cap_consumed_nonces",
+                        "SET key 1 NX PX",
+                        "Caffeine 仅保证单 JVM",
+                        "autoCommit=true",
+                        "一分钟安全余量",
+                        "会话时区",
+                        "signature_hex VARCHAR(64) PRIMARY KEY",
+                        "expires_at TIMESTAMP WITH TIME ZONE NOT NULL",
+                        "CURRENT_TIMESTAMP - INTERVAL '1 minute'",
+                        "signature_hex VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY",
+                        "expires_at TIMESTAMP(6) NOT NULL",
+                        "CURRENT_TIMESTAMP(6) - INTERVAL 1 MINUTE");
+        assertThat(compatibility)
+                .contains("CaffeineNonceConsumer", "JdbcNonceConsumer", "LettuceNonceConsumer");
+        assertThat(agents).contains("cap-server-jdbc/", "cap-server-redis/", "-Pstore-integration");
+    }
+
+    @Test
     @DisplayName("widget E2E 文档固定依赖与失败语义")
     void widgetE2eDocumentationIsComplete() throws Exception {
         assertWidgetE2eDocumentation("AGENTS.md");

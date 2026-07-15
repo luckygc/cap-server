@@ -21,6 +21,26 @@
 </dependency>
 ```
 
+需要共享 JDBC 防重放存储时，另加：
+
+```xml
+<dependency>
+    <groupId>com.github.luckygc</groupId>
+    <artifactId>cap-server-jdbc</artifactId>
+    <version>3.0.0</version>
+</dependency>
+```
+
+使用 Redis 时，另加 Lettuce 适配模块：
+
+```xml
+<dependency>
+    <groupId>com.github.luckygc</groupId>
+    <artifactId>cap-server-redis</artifactId>
+    <version>3.0.0</version>
+</dependency>
+```
+
 运行环境需要 Java 17+。`secret` 至少为 16 个 UTF-8 字节，应从密钥管理系统或环境变量读取，
 不要写入源码。
 
@@ -165,20 +185,49 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
 
 ## 防重放与集群部署
 
-默认 Caffeine nonce cache 只覆盖当前 JVM，并把 `nonceCacheMaximumSize(...)` 作为硬容量：
+默认 Caffeine nonce cache 是零配置选项，但只覆盖当前 JVM，并把
+`nonceCacheMaximumSize(...)` 作为硬容量：
 TTL 内的已消费签名不会因容量压力被淘汰；容量满时兑换 fail closed，返回
-`nonce_store_error`。多实例部署必须用共享存储实现原子
-“不存在则写入并设置 TTL”，并完全替代本机缓存：
+`nonce_store_error`。多实例部署必须选择 JDBC、Redis 或其他共享且原子的 `NonceConsumer`，实现
+“不存在则写入并设置 TTL”，并完全替代本机缓存。外部存储异常会 fail closed，不会回退到
+Caffeine。
+
+JDBC 模块使用数据库唯一约束完成原子消费：
 
 ```java
-Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
-        .nonceConsumer((signatureHex, ttl) -> redisSetNxEx(signatureHex, ttl))
-        .build();
+import github.luckygc.cap.Cap;
+import github.luckygc.cap.replay.jdbc.JdbcDialect;
+import github.luckygc.cap.replay.jdbc.JdbcNonceConsumer;
+import javax.sql.DataSource;
+
+static Cap createJdbcCap(DataSource dataSource) {
+    return Cap.builder(System.getenv("CAP_SECRET"))
+            .nonceConsumer(new JdbcNonceConsumer(dataSource, JdbcDialect.POSTGRESQL))
+            .build();
+}
 ```
 
-例如 Redis 实现应把 `signatureHex` 放入带命名空间的 key，并使用单条
-`SET key value NX PX ttlMillis`；返回是否写入成功。回调在兑换线程同步执行，必须线程安全，
-并自行设置连接超时。除非外层已有等价且经过审计的原子防重放机制，不要调用
+传入的 `DataSource` 必须在每次 `getConnection()` 时返回独立、`autoCommit=true`、不绑定宿主事务的
+连接；不要传入会复用当前业务事务连接的 transaction-aware 包装。表结构与清理 SQL 由宿主应用管理。
+
+Redis 模块接受调用方已有连接的同步 commands：
+
+```java
+import github.luckygc.cap.Cap;
+import github.luckygc.cap.replay.redis.LettuceNonceConsumer;
+import io.lettuce.core.api.StatefulRedisConnection;
+
+static Cap createRedisCap(StatefulRedisConnection<String, String> connection) {
+    return Cap.builder(System.getenv("CAP_SECRET"))
+            .nonceConsumer(new LettuceNonceConsumer(connection.sync()))
+            .build();
+}
+```
+
+`LettuceNonceConsumer` 使用单条 `SET key 1 NX PX ttlMillis`。commands、底层连接或连接池及有界超时
+都由调用方拥有和管理，consumer 不会关闭或重配它们。`NonceConsumer` 在兑换线程同步执行，必须线程
+安全且有界。完整的存储选择、DDL、清理和时钟要求见
+[防重放存储部署指南](docs/replay-storage.md)。除非外层已有等价且经过审计的原子防重放机制，不要调用
 `disableReplayProtection()`。
 
 ## 业务 token 与 tokenKey
@@ -243,7 +292,8 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
 - 集群中为所有实例配置同一 `secret`、RSW key pair 和共享 `NonceConsumer`。
 
 协议字段、失败码、加密 wire 和上游 fixture 说明见
-[协议兼容性文档](docs/protocol-compatibility.md)。
+[协议兼容性文档](docs/protocol-compatibility.md)；集群存储迁移见
+[防重放存储部署指南](docs/replay-storage.md)。
 
 ## 构建与测试
 

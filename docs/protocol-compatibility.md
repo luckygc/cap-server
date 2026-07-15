@@ -154,6 +154,16 @@ instrumentation 类失败在核心 API 中的 `instrError` 为 `true`，Web adap
 `instr_error=true`；其他失败为 `false`。Format 2 已通过 JWT 但缺失或结构损坏的认证元数据统一
 映射为 `invalid_token`。
 
+## 防重放存储兼容性
+
+核心模块默认使用 `CaffeineNonceConsumer`，`cap-server-jdbc` 提供 `JdbcNonceConsumer`，
+`cap-server-redis` 提供 `LettuceNonceConsumer`。三种实现只改变消费状态保存位置，不改变协议 wire、
+失败码或 TTL 语义：防重放 key 始终是 challenge JWT 签名的 64 字符小写十六进制，成功消费后直到
+challenge 剩余 TTL 到期都必须拒绝重放。Caffeine 仅适用于单 JVM；多实例必须共享同一个原子存储。
+
+外部存储失败统一 fail closed 为 `nonce_store_error`，不会回退到本机 Caffeine。数据库迁移、Redis
+命令、过期清理和时钟边界见[防重放存储部署指南](replay-storage.md)。
+
 ## 真实 widget E2E
 
 可选 E2E 固定 `@cap.js/widget@0.1.56`、`@cap.js/wasm@0.0.7` 和
@@ -289,6 +299,6 @@ headless Chromium 若返回普通 `result.i` 路径或没有触发 blocked，命
 
 1. 用 `Cap.builder(secret)` 创建单例门面；
 2. challenge 可直接序列化 `ChallengeResponse`；redeem 使用显式 DTO/adapter 映射 snake_case；
-3. challenge 状态由签名/加密 JWT 携带，防重放由 Caffeine 或外部原子 `NonceConsumer` 负责；
+3. challenge 状态由签名/加密 JWT 携带，单 JVM 防重放由 Caffeine 负责，多实例改用 JDBC、Redis 或其他共享原子 `NonceConsumer`；
 4. 兑换成功后保存 `tokenKey` 与授权上下文，客户端只持有 `token`；
 5. 集群实例共享 `secret`、RSW key pair 和原子 nonce 存储。
