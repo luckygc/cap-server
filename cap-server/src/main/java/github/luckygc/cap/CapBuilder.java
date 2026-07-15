@@ -1,8 +1,8 @@
 package github.luckygc.cap;
 
 import github.luckygc.cap.internal.DefaultCap;
-import github.luckygc.cap.internal.replay.CaffeineNonceConsumer;
 import github.luckygc.cap.internal.rsw.RswSupport;
+import github.luckygc.cap.replay.CaffeineNonceConsumer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;

@@ -59,6 +59,15 @@ class CapApiTest {
     }
 
     @Test
+    @DisplayName("Caffeine nonce consumer 可作为公开 API 构造")
+    void exposesCaffeineNonceConsumer() throws Exception {
+        Class<?> type = Class.forName("github.luckygc.cap.replay.CaffeineNonceConsumer");
+        assertThat(type.getConstructor().newInstance()).isInstanceOf(NonceConsumer.class);
+        assertThat(type.getConstructor(long.class).newInstance(16L))
+                .isInstanceOf(NonceConsumer.class);
+    }
+
+    @Test
     @DisplayName("JSON 容器声明可空元素契约")
     void jsonContainersDeclareNullableElementTypes() throws NoSuchMethodException {
         AnnotatedType extraType =

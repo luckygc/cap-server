@@ -1,4 +1,4 @@
-package github.luckygc.cap.internal.replay;
+package github.luckygc.cap.replay;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
