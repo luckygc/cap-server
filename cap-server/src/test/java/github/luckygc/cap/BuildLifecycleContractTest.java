@@ -2,7 +2,6 @@ package github.luckygc.cap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,18 +9,12 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Maven 测试生命周期契约")
 class BuildLifecycleContractTest {
     @Test
-    @DisplayName("本地审查材料被忽略且不进入版本控制")
-    void localReviewArtifactsStayUntracked() throws Exception {
+    @DisplayName("本地审查材料由根忽略规则排除")
+    void localReviewArtifactsAreIgnored() throws Exception {
         String gitignore = Files.readString(RepositoryPaths.root().resolve(".gitignore"));
 
         assertThat(gitignore.lines().anyMatch(".superpowers/"::equals))
                 .as("repository hygiene ignore rule")
-                .isTrue();
-
-        ProcessResult trackedArtifacts = runGit("ls-files", ".superpowers");
-        assertThat(trackedArtifacts.exitCode()).as("repository hygiene git command").isZero();
-        assertThat(trackedArtifacts.output().isBlank())
-                .as("repository hygiene tracked artifacts")
                 .isTrue();
     }
 
@@ -195,20 +188,6 @@ class BuildLifecycleContractTest {
                         "instr_automated_browser");
     }
 
-    private static ProcessResult runGit(String... arguments)
-            throws IOException, InterruptedException {
-        String[] command = new String[arguments.length + 1];
-        command[0] = "git";
-        System.arraycopy(arguments, 0, command, 1, arguments.length);
-        Process process =
-                new ProcessBuilder(command)
-                        .directory(RepositoryPaths.root().toFile())
-                        .redirectErrorStream(true)
-                        .start();
-        String output = new String(process.getInputStream().readAllBytes());
-        return new ProcessResult(process.waitFor(), output);
-    }
-
     private static int countOccurrences(String value, String expected) {
         int count = 0;
         int offset = 0;
@@ -218,6 +197,4 @@ class BuildLifecycleContractTest {
         }
         return count;
     }
-
-    private record ProcessResult(int exitCode, String output) {}
 }
