@@ -179,7 +179,9 @@ HTTP 到达 Java `Cap`。场景覆盖 Format 1 成功、浏览器原始 redeem b
 `already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截。
 STRICT 的后端 403 为 `reason/error=instr_automated_browser` 且 `instr_error=true`；固定 widget 的
 `solve()` rejection message 为 `instr_automated_browser`，error event code 是其统一映射
-`invalid_solution`。`instr_blocked` event code 只属于 Format 1 instrumentation 分支。
+`invalid_solution`。STRICT 页面通过 Playwright init script 植入 12 类标准自动化标记；默认 generator
+仍从 18 类检查随机选取 8 类，因此任意子集必有命中，不需要重试，也未替换 production transformer。
+`instr_blocked` event code 只属于 Format 1 instrumentation 分支。
 
 测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。该 HTTP/JSON server 仅验证互操作，
 不改变库的职责：生产应用仍须自行提供 Web 框架、JSON databind、认证、CORS、CSRF、实际端点与边界策略。
@@ -270,8 +272,8 @@ node "$repo/tools/fixtures/check-instrumentation-browser.mjs" \
 iframe 中执行 raw-deflate 解压后的上游脚本。上游 blocked wire 固定为
 `{type:"cap:instr", nonce, result:"", blocked:true}`；检查器对字段集和值做精确断言。
 headless Chromium 若返回普通 `result.i` 路径或没有触发 blocked，命令必须失败，不会把普通结果
-当作通过。当前构建环境没有预装浏览器，因此本次发布验证
-不声称已执行该可选项；Node 语法/运行检查和完整上游 validation oracle 已独立覆盖。
+当作通过。该命令是上游 Format 1 fixture 的独立可选复核，不替代前述 widget E2E；只有实际准备并
+运行 Chromium 后才能声称此项通过。
 
 ## 从 2.x 迁移
 

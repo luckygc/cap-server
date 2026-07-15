@@ -67,7 +67,9 @@ Node 脚本从传入 npm 项目解析 Playwright，从该项目的 `node_modules
 脚本连接 Java 测试传入的 base URL，启动 headless Chromium。每个场景新建页面，调用 widget 的
 `solve()`，监听 `solve` 或 `error` 事件，并以 JSON 行把结果返回 JUnit。浏览器控制台错误、页面错误、
 请求失败或超时均导致测试失败；STRICT blocked 场景仅允许 Chromium 对预期 403 产生的一次固定资源
-console error，其他未声明错误仍失败。
+console error，其他未声明错误仍失败。为消除默认 instrumentation 从 18 类检查随机抽取 8 类带来的
+概率性，STRICT 页面通过 init script 植入 12 类标准自动化标记；测试保持默认 generator/transformer，
+不通过重试掩盖随机未命中。
 
 所有资源由回环 HTTP server 本地提供；测试不在浏览器运行期间访问 CDN。
 

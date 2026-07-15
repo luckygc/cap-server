@@ -55,6 +55,7 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 - 默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不探测 Node 或 Chromium。
 - 显式 profile 缺少 `package-lock.json`、精确 version/resolved URL/integrity、Node、Chromium 或 artifact 文件时必须硬失败，不能静默 skip。
 - E2E 在真实 Chromium 中只加载本地 widget/WASM，经真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay=`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截=`instr_automated_browser`；浏览器不得访问 CDN。
+- STRICT 页面通过 init script 植入固定的标准自动化标记，使随机抽取 8 项的默认 instrumentation 检查必然命中；不得改用重试，也不得替换 production generator 或 transformer。
 - E2E 输出不得包含 secret、JWT、solution、业务 token 或 tokenKey。测试 server 只验证互操作；库仍不提供 Web 框架、JSON databind、认证、CORS 或 CSRF，实际端点与边界策略由宿主应用负责。
 
 ## 代码约定

@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +37,10 @@ class WidgetBrowserIT {
     private static final int MAX_BODY_BYTES = 64 * 1024;
     private static final Duration DRIVER_TIMEOUT = Duration.ofMinutes(3);
     private static final Duration PROCESS_EXIT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Pattern SAFE_DRIVER_DIAGNOSTIC =
+            Pattern.compile(
+                    "widget-e2e scenario=([a-z0-9_]+) phase=([a-z0-9_]+) "
+                            + "category=([a-z0-9_]+) status=failed\\R?");
     private static final Map<String, String> EXPECTED_SUMMARY =
             Map.of(
                     "format1", "solved",
@@ -58,16 +64,20 @@ class WidgetBrowserIT {
                                     Path.of(npmRoot).toAbsolutePath().toString(),
                                     "--base-url",
                                     server.baseUrl())
-                            .redirectError(ProcessBuilder.Redirect.DISCARD)
                             .start();
             Map<Long, ProcessHandle> observedDescendants = new LinkedHashMap<>();
             try {
                 boolean finished = awaitDriver(process, observedDescendants);
                 assertThat(finished).as("widget E2E driver timed out").isTrue();
-                assertThat(process.exitValue()).as("widget E2E driver failed").isZero();
 
                 String output =
                         new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                String errorOutput =
+                        new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+                assertThat(process.exitValue())
+                        .as("widget E2E driver failed: %s", safeDriverDiagnostic(errorOutput))
+                        .isZero();
+                assertThat(errorOutput).as("successful driver must not emit stderr").isEmpty();
                 assertThat(output.lines()).as("driver must emit one summary line").hasSize(1);
                 assertThat(summary(output)).containsExactlyInAnyOrderEntriesOf(EXPECTED_SUMMARY);
 
@@ -105,6 +115,19 @@ class WidgetBrowserIT {
                     summary.put(key, string);
                 });
         return summary;
+    }
+
+    static String safeDriverDiagnostic(String errorOutput) {
+        Matcher matcher = SAFE_DRIVER_DIAGNOSTIC.matcher(errorOutput);
+        if (!matcher.matches()) {
+            return "diagnostic_unavailable";
+        }
+        return "scenario="
+                + matcher.group(1)
+                + " phase="
+                + matcher.group(2)
+                + " category="
+                + matcher.group(3);
     }
 
     private static boolean awaitDriver(

@@ -3,11 +3,102 @@ import { pathToFileURL } from "node:url";
 import { resolveWidgetAssets } from "./widget-assets.mjs";
 
 const SCENARIO_TIMEOUT_MS = 60_000;
+const diagnostic = { scenario: "driver", phase: "startup" };
+let capturedFailure;
+const SAFE_SCENARIOS = new Set([
+  "driver",
+  "format1",
+  "replay",
+  "instrumented",
+  "format2",
+  "strict",
+]);
+const SAFE_PHASES = new Set([
+  "startup",
+  "arguments",
+  "assets",
+  "playwright_import",
+  "browser_launch",
+  "context",
+  "new_page",
+  "navigate",
+  "widget_ready",
+  "operation",
+  "solve",
+  "wait_result",
+  "read_result",
+  "assert_solve",
+  "assert_event",
+  "assert_response",
+  "frame_flush",
+  "request",
+  "complete",
+  "browser_close",
+]);
+
+function mark(scenario, phase) {
+  diagnostic.scenario = scenario;
+  diagnostic.phase = phase;
+}
+
+function errorCategory(error) {
+  if (error instanceof Error && error.message.endsWith("scenario timed out")) {
+    return "deadline";
+  }
+  if (error instanceof Error && error.message.includes("Target page, context or browser")) {
+    return "browser_closed";
+  }
+  if (error instanceof Error && error.message.includes("net::")) {
+    return "navigation";
+  }
+  if (error instanceof Error && error.message.includes("mismatch")) {
+    return "assertion_mismatch";
+  }
+  if (error instanceof Error && error.message.includes("did not")) {
+    return "assertion_missing";
+  }
+  return "unknown";
+}
+
+export function formatFailureDiagnostic(failure, error) {
+  const scenario = SAFE_SCENARIOS.has(failure.scenario)
+    ? failure.scenario
+    : "driver";
+  const phase = SAFE_PHASES.has(failure.phase) ? failure.phase : "startup";
+  return `widget-e2e scenario=${scenario} phase=${phase} category=${errorCategory(error)} status=failed\n`;
+}
 export const STRICT_403_CONSOLE_ERROR =
   "Failed to load resource: the server responded with a status of 403 (Forbidden)";
 
 export function isExpectedStrictConsoleError(type, text) {
   return type === "error" && text === STRICT_403_CONSOLE_ERROR;
+}
+
+export function installStrictAutomationMarkers(
+  targetWindow = window,
+  targetNavigator = navigator,
+  targetDocument = document,
+) {
+  Object.defineProperties(targetNavigator, {
+    webdriver: { configurable: true, value: true },
+    mimeTypes: { configurable: true, value: {} },
+    userAgent: { configurable: true, value: "HeadlessChrome" },
+    appVersion: { configurable: true, value: "HeadlessChrome" },
+    productSub: { configurable: true, value: "widget-e2e" },
+  });
+  Object.assign(targetWindow, {
+    cdc_widget_e2e: true,
+    _selenium: true,
+    exposedFn: function exposeBindingHandle() {},
+    fixture_Array: true,
+  });
+  Object.defineProperties(targetWindow, {
+    outerWidth: { configurable: true, value: 0 },
+    outerHeight: { configurable: true, value: 0 },
+  });
+  targetDocument.__webdriver_evaluate = true;
+  targetDocument.hasFocus = () => true;
+  targetDocument.documentElement?.setAttribute("data-webdriver", "true");
 }
 
 export async function withDeadline(
@@ -83,12 +174,20 @@ async function runPageScenario(context, baseUrl, scenario, operation) {
     scenario,
     SCENARIO_TIMEOUT_MS,
     async () => {
+      mark(scenario, "new_page");
       page = await context.newPage();
+      if (scenario === "strict") {
+        await page.addInitScript(installStrictAutomationMarkers);
+      }
       const observation = observePage(page, scenario);
       try {
+        mark(scenario, "navigate");
         await page.goto(`${baseUrl}/?scenario=${scenario}`);
+        mark(scenario, "widget_ready");
         await page.evaluate(() => customElements.whenDefined("cap-widget"));
+        mark(scenario, "operation");
         const result = await operation(page);
+        mark(scenario, "frame_flush");
         await page.evaluate(
           () => new Promise((resolve) => requestAnimationFrame(() => resolve())),
         );
@@ -102,6 +201,7 @@ async function runPageScenario(context, baseUrl, scenario, operation) {
             "strict 403 console error count mismatch",
           );
         }
+        mark(scenario, "complete");
         return result;
       } finally {
         await page.close();
@@ -122,8 +222,11 @@ async function solveScenario(context, baseUrl, scenario) {
         redeemBody = request.postData();
       }
     });
+    mark(scenario, "solve");
     await page.evaluate(() => document.getElementById("cap").solve());
+    mark(scenario, "wait_result");
     await page.waitForFunction(() => window.__capResult !== null);
+    mark(scenario, "read_result");
     const result = await page.evaluate(() => window.__capResult);
     check(result.type === "solve", `${scenario} did not emit solve`);
     check(
@@ -147,6 +250,7 @@ async function solveStrict(context, baseUrl) {
         response.request().method() === "POST" && path === "/strict/redeem"
       );
     });
+    mark("strict", "solve");
     const solveOutcome = await page.evaluate(async () => {
       try {
         await document.getElementById("cap").solve();
@@ -155,17 +259,22 @@ async function solveStrict(context, baseUrl) {
         return { rejected: true, message: error.message };
       }
     });
+    mark("strict", "wait_result");
     await page.waitForFunction(() => window.__capResult !== null);
+    mark("strict", "read_result");
     const result = await page.evaluate(() => window.__capResult);
     const response = await redeemResponse;
     const body = await response.json();
+    mark("strict", "assert_solve");
     check(solveOutcome.rejected, "strict solve did not reject");
     check(
       solveOutcome.message === "instr_automated_browser",
       "strict solve rejection mismatch",
     );
+    mark("strict", "assert_event");
     check(result.type === "error", "strict did not emit error");
     check(result.code === "invalid_solution", "strict emitted wrong error code");
+    mark("strict", "assert_response");
     check(response.status() === 403, "strict redeem did not return 403");
     check(
       body.reason === "instr_automated_browser" && body.instr_error === true,
@@ -175,14 +284,19 @@ async function solveStrict(context, baseUrl) {
 }
 
 async function main() {
+  mark("driver", "arguments");
   const { npmRoot, baseUrl } = argumentsOf(process.argv.slice(2));
+  mark("driver", "assets");
   const assets = await resolveWidgetAssets(npmRoot);
+  mark("driver", "playwright_import");
   const { chromium } = await import(pathToFileURL(assets.playwrightModule).href);
   const expectedOrigin = new URL(baseUrl).origin;
 
   let browser;
   try {
+    mark("driver", "browser_launch");
     browser = await chromium.launch({ headless: true });
+    mark("driver", "context");
     const context = await browser.newContext();
     await context.route("**/*", async (route) => {
       if (new URL(route.request().url()).origin !== expectedOrigin) {
@@ -194,6 +308,7 @@ async function main() {
 
     const format1Body = await solveScenario(context, baseUrl, "format1");
     const replayController = new AbortController();
+    mark("replay", "request");
     await withDeadline(
       "replay",
       SCENARIO_TIMEOUT_MS,
@@ -210,6 +325,7 @@ async function main() {
       },
       async () => replayController.abort(),
     );
+    mark("replay", "complete");
 
     await solveScenario(context, baseUrl, "instrumented");
     await solveScenario(context, baseUrl, "format2");
@@ -224,7 +340,11 @@ async function main() {
         strict: "instr_automated_browser",
       })}\n`,
     );
+  } catch (error) {
+    capturedFailure = { diagnostic: { ...diagnostic }, error };
+    throw error;
   } finally {
+    mark("driver", "browser_close");
     await browser?.close();
   }
 }
@@ -233,5 +353,15 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  await main();
+  try {
+    await main();
+  } catch (error) {
+    process.stderr.write(
+      formatFailureDiagnostic(
+        capturedFailure?.diagnostic ?? diagnostic,
+        capturedFailure?.error ?? error,
+      ),
+    );
+    process.exitCode = 1;
+  }
 }

@@ -275,7 +275,9 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 Node 或 Chromium 时硬失败，不会静默 skip。浏览器只加载测试 server 提供的本地 widget/WASM，
 不访问 CDN，并通过真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay 返回
 `already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截返回
-`instr_automated_browser`。测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。
+`instr_automated_browser`。STRICT 页面预先植入覆盖默认随机抽样检查的标准自动化标记，不替换 Java 的
+production generator/transformer，也不靠重试等待随机命中。测试输出不包含 secret、JWT、solution、
+业务 token 或 tokenKey。
 
 这个回环 server 只用于互操作验证，不是可复用的生产 Web 层。本库仍不提供 Web 框架、JSON databind、
 认证、CORS 或 CSRF；宿主应用必须实现真实 challenge/redeem 端点以及认证和边界策略。
