@@ -68,6 +68,28 @@ class BuildLifecycleContractTest {
     }
 
     @Test
+    @DisplayName("真实存储测试仅由显式 Failsafe profile 执行")
+    void storeIntegrationIsOptIn() throws Exception {
+        String jdbcPom =
+                Files.readString(RepositoryPaths.root().resolve("cap-server-jdbc/pom.xml"));
+        String redisPom =
+                Files.readString(RepositoryPaths.root().resolve("cap-server-redis/pom.xml"));
+
+        assertThat(jdbcPom)
+                .contains(
+                        "<id>store-integration</id>",
+                        "testcontainers-postgresql",
+                        "testcontainers-mysql",
+                        "testcontainers-mariadb");
+        assertThat(redisPom)
+                .contains("<id>store-integration</id>", "<artifactId>testcontainers</artifactId>");
+        assertThat(jdbcPom.indexOf("maven-failsafe-plugin"))
+                .isGreaterThan(jdbcPom.indexOf("<profiles>"));
+        assertThat(redisPom.indexOf("maven-failsafe-plugin"))
+                .isGreaterThan(redisPom.indexOf("<profiles>"));
+    }
+
+    @Test
     @DisplayName("widget E2E 文档固定依赖与失败语义")
     void widgetE2eDocumentationIsComplete() throws Exception {
         assertWidgetE2eDocumentation("AGENTS.md");
