@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 class WidgetBrowserIT {
     private static final int MAX_BODY_BYTES = 64 * 1024;
     private static final Duration DRIVER_TIMEOUT = Duration.ofMinutes(3);
+    private static final Duration PROCESS_EXIT_TIMEOUT = Duration.ofSeconds(5);
     private static final Map<String, String> EXPECTED_SUMMARY =
             Map.of(
                     "format1", "solved",
@@ -58,27 +60,30 @@ class WidgetBrowserIT {
                                     server.baseUrl())
                             .redirectError(ProcessBuilder.Redirect.DISCARD)
                             .start();
-            boolean finished = process.waitFor(DRIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            if (!finished) {
-                destroy(process);
+            Map<Long, ProcessHandle> observedDescendants = new LinkedHashMap<>();
+            try {
+                boolean finished = awaitDriver(process, observedDescendants);
+                assertThat(finished).as("widget E2E driver timed out").isTrue();
+                assertThat(process.exitValue()).as("widget E2E driver failed").isZero();
+
+                String output =
+                        new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                assertThat(output.lines()).as("driver must emit one summary line").hasSize(1);
+                assertThat(summary(output)).containsExactlyInAnyOrderEntriesOf(EXPECTED_SUMMARY);
+
+                assertSuccessfulScenario(server.scenario("format1"));
+                assertSuccessfulScenario(server.scenario("instrumented"));
+                assertSuccessfulScenario(server.scenario("format2"));
+                assertThat(server.scenario("format1").redeemCount()).hasValue(2);
+                assertThat(server.scenario("format1").lastReason()).hasValue("already_redeemed");
+                assertThat(server.scenario("strict").challengeCount()).hasPositiveValue();
+                assertThat(server.scenario("strict").redeemCount()).hasPositiveValue();
+                assertThat(server.scenario("strict").lastRedeem().get()).isNotEmpty();
+                assertThat(server.scenario("strict").lastReason())
+                        .hasValue("instr_automated_browser");
+            } finally {
+                terminate(process, List.copyOf(observedDescendants.values()));
             }
-            assertThat(finished).as("widget E2E driver timed out").isTrue();
-            assertThat(process.exitValue()).as("widget E2E driver failed").isZero();
-
-            String output =
-                    new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            assertThat(output.lines()).as("driver must emit one summary line").hasSize(1);
-            assertThat(summary(output)).containsExactlyInAnyOrderEntriesOf(EXPECTED_SUMMARY);
-
-            assertSuccessfulScenario(server.scenario("format1"));
-            assertSuccessfulScenario(server.scenario("instrumented"));
-            assertSuccessfulScenario(server.scenario("format2"));
-            assertThat(server.scenario("format1").redeemCount()).hasValue(2);
-            assertThat(server.scenario("format1").lastReason()).hasValue("already_redeemed");
-            assertThat(server.scenario("strict").challengeCount()).hasPositiveValue();
-            assertThat(server.scenario("strict").redeemCount()).hasPositiveValue();
-            assertThat(server.scenario("strict").lastRedeem().get()).isNotEmpty();
-            assertThat(server.scenario("strict").lastReason()).hasValue("instr_automated_browser");
         }
     }
 
@@ -102,9 +107,37 @@ class WidgetBrowserIT {
         return summary;
     }
 
-    private static void destroy(Process process) {
-        process.descendants().forEach(ProcessHandle::destroyForcibly);
-        process.destroyForcibly();
+    private static boolean awaitDriver(
+            Process process, Map<Long, ProcessHandle> observedDescendants)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + DRIVER_TIMEOUT.toNanos();
+        while (process.isAlive()) {
+            process.descendants().forEach(handle -> observedDescendants.put(handle.pid(), handle));
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return false;
+            }
+            process.waitFor(
+                    Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(100)), TimeUnit.NANOSECONDS);
+        }
+        return true;
+    }
+
+    private static void terminate(Process process, List<ProcessHandle> descendants)
+            throws InterruptedException {
+        descendants.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
+        if (process.isAlive()) {
+            process.destroyForcibly();
+        }
+
+        long deadline = System.nanoTime() + PROCESS_EXIT_TIMEOUT.toNanos();
+        while (process.isAlive() || descendants.stream().anyMatch(ProcessHandle::isAlive)) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                throw new IllegalStateException("widget E2E process did not terminate");
+            }
+            TimeUnit.NANOSECONDS.sleep(Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(20)));
+        }
     }
 
     private static final class WidgetServer implements AutoCloseable {
