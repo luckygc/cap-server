@@ -82,8 +82,8 @@ export function installStrictAutomationMarkers(
   Object.defineProperties(targetNavigator, {
     webdriver: { configurable: true, value: true },
     mimeTypes: { configurable: true, value: {} },
-    userAgent: { configurable: true, value: "HeadlessChrome" },
-    appVersion: { configurable: true, value: "HeadlessChrome" },
+    userAgent: { configurable: true, value: "Chrome HeadlessChrome" },
+    appVersion: { configurable: true, value: "Chrome HeadlessChrome" },
     productSub: { configurable: true, value: "widget-e2e" },
   });
   Object.assign(targetWindow, {

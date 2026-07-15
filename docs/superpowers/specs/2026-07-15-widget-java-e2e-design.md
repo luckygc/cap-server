@@ -68,8 +68,9 @@ Node 脚本从传入 npm 项目解析 Playwright，从该项目的 `node_modules
 `solve()`，监听 `solve` 或 `error` 事件，并以 JSON 行把结果返回 JUnit。浏览器控制台错误、页面错误、
 请求失败或超时均导致测试失败；STRICT blocked 场景仅允许 Chromium 对预期 403 产生的一次固定资源
 console error，其他未声明错误仍失败。为消除默认 instrumentation 从 18 类检查随机抽取 8 类带来的
-概率性，STRICT 页面通过 init script 植入 12 类标准自动化标记；测试保持默认 generator/transformer，
-不通过重试掩盖随机未命中。
+概率性，STRICT 页面通过 init script 植入标准自动化标记；按真实 iframe init 时
+`documentElement=null` 计算，仍有 11 类稳定命中、仅 7 类未命中，因而任意 8 类抽样必有命中。测试
+保持默认 generator/transformer，不通过重试掩盖随机未命中。
 
 所有资源由回环 HTTP server 本地提供；测试不在浏览器运行期间访问 CDN。
 

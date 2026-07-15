@@ -179,9 +179,10 @@ HTTP 到达 Java `Cap`。场景覆盖 Format 1 成功、浏览器原始 redeem b
 `already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截。
 STRICT 的后端 403 为 `reason/error=instr_automated_browser` 且 `instr_error=true`；固定 widget 的
 `solve()` rejection message 为 `instr_automated_browser`，error event code 是其统一映射
-`invalid_solution`。STRICT 页面通过 Playwright init script 植入 12 类标准自动化标记；默认 generator
-仍从 18 类检查随机选取 8 类，因此任意子集必有命中，不需要重试，也未替换 production transformer。
-`instr_blocked` event code 只属于 Format 1 instrumentation 分支。
+`invalid_solution`。STRICT 页面通过 Playwright init script 植入标准自动化标记；按真实 iframe init
+时 `documentElement=null` 计算，不依赖 DOM attribute 仍有 11 类稳定命中。默认 generator 从 18 类
+检查随机选取 8 类，未命中类只有 7 类，因此任意子集必有命中；不需要重试，也未替换 production
+transformer。`instr_blocked` event code 只属于 Format 1 instrumentation 分支。
 
 测试输出不包含 secret、JWT、solution、业务 token 或 tokenKey。该 HTTP/JSON server 仅验证互操作，
 不改变库的职责：生产应用仍须自行提供 Web 框架、JSON databind、认证、CORS、CSRF、实际端点与边界策略。

@@ -25,14 +25,7 @@ test("failure diagnostic emits only fixed safe fields", () => {
 test("strict marker installer covers every random eight-check sample", () => {
   const attributes = new Set();
   const navigator = { mimeTypes: [] };
-  const document = {
-    documentElement: {
-      setAttribute(name) {
-        attributes.add(name);
-      },
-    },
-    hasFocus: () => false,
-  };
+  const document = { documentElement: null, hasFocus: () => false };
   const window = { navigator, document };
 
   installStrictAutomationMarkers(window, navigator, document);
@@ -48,11 +41,15 @@ test("strict marker installer covers every random eight-check sample", () => {
     navigator.userAgent.includes("HeadlessChrome"),
     document.hasFocus() && window.outerWidth === 0 && window.outerHeight === 0,
     Object.getPrototypeOf(navigator.mimeTypes) !== Array.prototype,
-    navigator.productSub !== "20030107",
+    navigator.productSub !== "20030107" &&
+      navigator.userAgent
+        .toLowerCase()
+        .split(/[\s/(),;]/)
+        .some((token) => ["chrome", "safari", "opera"].includes(token)),
     Object.hasOwn(window, "fixture_Array"),
   ].filter(Boolean).length;
 
-  assert.equal(hitCategories, 12);
+  assert.equal(hitCategories, 11);
   assert.ok(18 - hitCategories < 8);
   assert.equal(window.process, undefined);
   assert.equal(window.external, undefined);
