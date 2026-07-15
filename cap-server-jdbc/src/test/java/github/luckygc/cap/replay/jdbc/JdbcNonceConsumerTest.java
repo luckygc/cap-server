@@ -78,6 +78,99 @@ class JdbcNonceConsumerTest {
         assertThat(jdbc.committed).isTrue();
         assertThat(jdbc.autoCommit).isTrue();
         assertThat(jdbc.closed).isTrue();
+        assertThat(jdbc.calls)
+                .containsExactly(
+                        "getAutoCommit",
+                        "setAutoCommit(false)",
+                        "prepareStatement",
+                        "setString",
+                        "setTimestamp",
+                        "executeUpdate",
+                        "statement.close",
+                        "commit",
+                        "setAutoCommit(true)",
+                        "connection.close");
+        assertThat(jdbc.callCount("commit")).isOne();
+        assertThat(jdbc.callCount("rollback")).isZero();
+        assertThat(jdbc.callCount("statement.close")).isOne();
+        assertThat(jdbc.callCount("connection.close")).isOne();
+    }
+
+    @Test
+    @DisplayName("只有 executeUpdate 抛出的重复键才能返回重放")
+    void duplicateShapedFailuresBeforeExecuteFailClosed() {
+        SQLException prepareFailure = new SQLException("prepare", "23505", 0);
+        RecordingJdbc prepareJdbc = new RecordingJdbc();
+        prepareJdbc.prepareFailure = prepareFailure;
+        assertFailureIsRethrown(prepareJdbc, JdbcDialect.POSTGRESQL, prepareFailure);
+        assertThat(prepareJdbc.callCount("executeUpdate")).isZero();
+
+        SQLException stringBindFailure = new SQLException("bind", "23000", 1062);
+        RecordingJdbc stringBindJdbc = new RecordingJdbc();
+        stringBindJdbc.signatureBindFailure = stringBindFailure;
+        assertFailureIsRethrown(stringBindJdbc, JdbcDialect.MYSQL, stringBindFailure);
+        assertThat(stringBindJdbc.callCount("executeUpdate")).isZero();
+
+        SQLException timestampBindFailure = new SQLException("bind", "23000", 1062);
+        RecordingJdbc timestampBindJdbc = new RecordingJdbc();
+        timestampBindJdbc.expiresAtBindFailure = timestampBindFailure;
+        assertFailureIsRethrown(timestampBindJdbc, JdbcDialect.MARIADB, timestampBindFailure);
+        assertThat(timestampBindJdbc.callCount("executeUpdate")).isZero();
+    }
+
+    @Test
+    @DisplayName("statement close 的重复键形状异常必须 fail closed")
+    void duplicateShapedStatementCloseFailureFailsClosed() {
+        RecordingJdbc jdbc = new RecordingJdbc();
+        SQLException failure = new SQLException("statement close", "23505", 0);
+        jdbc.statementCloseFailure = failure;
+
+        assertFailureIsRethrown(jdbc, JdbcDialect.POSTGRESQL, failure);
+        assertThat(jdbc.callCount("executeUpdate")).isOne();
+        assertThat(jdbc.callCount("statement.close")).isOne();
+        assertThat(jdbc.callCount("commit")).isZero();
+    }
+
+    @Test
+    @DisplayName("execute duplicate 后 statement close 失败保留 suppressed 并 fail closed")
+    void statementCloseFailurePreventsExecuteDuplicateReplayResult() {
+        RecordingJdbc jdbc = new RecordingJdbc();
+        SQLException duplicate = new SQLException("duplicate", "23505", 0);
+        SQLException closeFailure = new SQLException("statement close");
+        jdbc.executeFailure = duplicate;
+        jdbc.statementCloseFailure = closeFailure;
+        JdbcNonceConsumer consumer =
+                new JdbcNonceConsumer(jdbc.dataSource(), JdbcDialect.POSTGRESQL);
+
+        assertThat(catchThrowable(() -> consumer.consume("signature", Duration.ofSeconds(30))))
+                .isSameAs(duplicate);
+        assertThat(duplicate.getSuppressed()).containsExactly(closeFailure);
+        assertThat(jdbc.calls)
+                .containsSubsequence(
+                        "executeUpdate",
+                        "statement.close",
+                        "rollback",
+                        "setAutoCommit(true)",
+                        "connection.close");
+        assertThat(jdbc.callCount("commit")).isZero();
+    }
+
+    @Test
+    @DisplayName("connection close 失败原样抛出且不掩盖已提交事实")
+    void rethrowsConnectionCloseFailureAfterCommit() {
+        RecordingJdbc jdbc = new RecordingJdbc();
+        SQLException closeFailure = new SQLException("connection close", "23505", 0);
+        jdbc.connectionCloseFailure = closeFailure;
+        JdbcNonceConsumer consumer =
+                new JdbcNonceConsumer(jdbc.dataSource(), JdbcDialect.POSTGRESQL);
+
+        assertThat(catchThrowable(() -> consumer.consume("signature", Duration.ofSeconds(30))))
+                .isSameAs(closeFailure);
+        assertThat(jdbc.committed).isTrue();
+        assertThat(jdbc.autoCommit).isTrue();
+        assertThat(jdbc.closed).isTrue();
+        assertThat(jdbc.callCount("commit")).isOne();
+        assertThat(jdbc.callCount("connection.close")).isOne();
     }
 
     @Test
@@ -261,5 +354,18 @@ class JdbcNonceConsumerTest {
         return dialect == JdbcDialect.POSTGRESQL
                 ? new SQLException("duplicate", "23505", 0)
                 : new SQLException("duplicate", "23000", 1062);
+    }
+
+    private static void assertFailureIsRethrown(
+            RecordingJdbc jdbc, JdbcDialect dialect, SQLException failure) {
+        JdbcNonceConsumer consumer = new JdbcNonceConsumer(jdbc.dataSource(), dialect);
+
+        assertThat(catchThrowable(() -> consumer.consume("signature", Duration.ofSeconds(30))))
+                .isSameAs(failure);
+        assertThat(jdbc.rolledBack).isTrue();
+        assertThat(jdbc.autoCommit).isTrue();
+        assertThat(jdbc.closed).isTrue();
+        assertThat(jdbc.callCount("rollback")).isOne();
+        assertThat(jdbc.callCount("connection.close")).isOne();
     }
 }

@@ -7,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -16,13 +18,23 @@ final class RecordingJdbc {
     boolean committed;
     boolean rolledBack;
     boolean closed;
+    final List<String> calls = new ArrayList<>();
     @Nullable String sql;
     @Nullable String signature;
     @Nullable Timestamp expiresAt;
+    @Nullable SQLException prepareFailure;
+    @Nullable SQLException signatureBindFailure;
+    @Nullable SQLException expiresAtBindFailure;
     @Nullable SQLException executeFailure;
+    @Nullable SQLException statementCloseFailure;
     @Nullable SQLException commitFailure;
     @Nullable SQLException rollbackFailure;
     @Nullable SQLException restoreFailure;
+    @Nullable SQLException connectionCloseFailure;
+
+    long callCount(String call) {
+        return calls.stream().filter(call::equals).count();
+    }
 
     DataSource dataSource() {
         return proxy(DataSource.class, this::invokeDataSource);
@@ -38,7 +50,7 @@ final class RecordingJdbc {
 
     private Object invokeConnection(Method method, @Nullable Object[] arguments) throws Throwable {
         return switch (method.getName()) {
-            case "getAutoCommit" -> autoCommit;
+            case "getAutoCommit" -> getAutoCommit();
             case "setAutoCommit" -> setAutoCommit((boolean) Objects.requireNonNull(arguments)[0]);
             case "prepareStatement" -> prepare((String) Objects.requireNonNull(arguments)[0]);
             case "commit" -> commit();
@@ -54,12 +66,18 @@ final class RecordingJdbc {
             case "setString" -> setSignature((String) Objects.requireNonNull(arguments)[1]);
             case "setTimestamp" -> setExpiresAt((Timestamp) Objects.requireNonNull(arguments)[1]);
             case "executeUpdate" -> execute();
-            case "close" -> null;
+            case "close" -> closeStatement();
             default -> throw new SQLFeatureNotSupportedException(method.getName());
         };
     }
 
+    private boolean getAutoCommit() {
+        calls.add("getAutoCommit");
+        return autoCommit;
+    }
+
     private @Nullable Object setAutoCommit(boolean value) throws SQLException {
+        calls.add("setAutoCommit(" + value + ")");
         if (value && restoreFailure != null) {
             throw restoreFailure;
         }
@@ -67,12 +85,17 @@ final class RecordingJdbc {
         return null;
     }
 
-    private PreparedStatement prepare(String actualSql) {
+    private PreparedStatement prepare(String actualSql) throws SQLException {
+        calls.add("prepareStatement");
+        if (prepareFailure != null) {
+            throw prepareFailure;
+        }
         sql = actualSql;
         return proxy(PreparedStatement.class, this::invokeStatement);
     }
 
     private @Nullable Object commit() throws SQLException {
+        calls.add("commit");
         if (commitFailure != null) {
             throw commitFailure;
         }
@@ -81,6 +104,7 @@ final class RecordingJdbc {
     }
 
     private @Nullable Object rollback() throws SQLException {
+        calls.add("rollback");
         if (rollbackFailure != null) {
             throw rollbackFailure;
         }
@@ -88,26 +112,47 @@ final class RecordingJdbc {
         return null;
     }
 
-    private @Nullable Object closeConnection() {
+    private @Nullable Object closeConnection() throws SQLException {
+        calls.add("connection.close");
         closed = true;
+        if (connectionCloseFailure != null) {
+            throw connectionCloseFailure;
+        }
         return null;
     }
 
-    private @Nullable Object setSignature(String value) {
+    private @Nullable Object setSignature(String value) throws SQLException {
+        calls.add("setString");
+        if (signatureBindFailure != null) {
+            throw signatureBindFailure;
+        }
         signature = value;
         return null;
     }
 
-    private @Nullable Object setExpiresAt(Timestamp value) {
+    private @Nullable Object setExpiresAt(Timestamp value) throws SQLException {
+        calls.add("setTimestamp");
+        if (expiresAtBindFailure != null) {
+            throw expiresAtBindFailure;
+        }
         expiresAt = value;
         return null;
     }
 
     private int execute() throws SQLException {
+        calls.add("executeUpdate");
         if (executeFailure != null) {
             throw executeFailure;
         }
         return 1;
+    }
+
+    private @Nullable Object closeStatement() throws SQLException {
+        calls.add("statement.close");
+        if (statementCloseFailure != null) {
+            throw statementCloseFailure;
+        }
+        return null;
     }
 
     private static <T> T proxy(Class<T> type, MethodCall call) {

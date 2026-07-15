@@ -57,13 +57,25 @@ public final class JdbcNonceConsumer implements NonceConsumer {
             }
             connection.setAutoCommit(false);
             SQLException primaryFailure = null;
+            SQLException duplicateCandidate = null;
             try {
                 try {
-                    insert(connection, signatureHex, expiresAt);
+                    try (PreparedStatement statement = connection.prepareStatement(insertSql)) {
+                        statement.setString(1, signatureHex);
+                        statement.setTimestamp(2, Timestamp.from(expiresAt));
+                        try {
+                            statement.executeUpdate();
+                        } catch (SQLException failure) {
+                            duplicateCandidate = failure;
+                            throw failure;
+                        }
+                    }
                 } catch (SQLException failure) {
                     primaryFailure = failure;
                     rollbackOrSuppress(connection, failure);
-                    if (dialect.isDuplicateKey(failure) && failure.getSuppressed().length == 0) {
+                    if (failure == duplicateCandidate
+                            && dialect.isDuplicateKey(failure)
+                            && failure.getSuppressed().length == 0) {
                         return false;
                     }
                     throw failure;
@@ -87,15 +99,6 @@ public final class JdbcNonceConsumer implements NonceConsumer {
                     throw restoreFailure;
                 }
             }
-        }
-    }
-
-    private void insert(Connection connection, String signatureHex, Instant expiresAt)
-            throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(insertSql)) {
-            statement.setString(1, signatureHex);
-            statement.setTimestamp(2, Timestamp.from(expiresAt));
-            statement.executeUpdate();
         }
     }
 
