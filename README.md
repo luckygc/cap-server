@@ -46,8 +46,9 @@
 
 ## 快速开始
 
-默认配置使用 Format 1 SHA-256 PoW、10 分钟 challenge TTL、20 分钟业务 token TTL，
-并使用本机 Caffeine 缓存阻止 challenge 重复兑换：
+默认配置使用 Format 1 SHA-256 PoW、10 分钟 challenge TTL、20 分钟业务 token TTL。与
+`capjs-core` 一样，默认不保存兑换状态；challenge 在有效期内可被重复兑换。需要一次性兑换时，
+显式配置 `NonceConsumer`：
 
 ```java
 import github.luckygc.cap.Cap;
@@ -185,12 +186,20 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
 
 ## 防重放与集群部署
 
-默认 Caffeine nonce cache 是零配置选项，但只覆盖当前 JVM，并把
-`nonceCacheMaximumSize(...)` 作为硬容量：
-TTL 内的已消费签名不会因容量压力被淘汰；容量满时兑换 fail closed，返回
-`nonce_store_error`。多实例部署必须选择 JDBC、Redis 或其他共享且原子的 `NonceConsumer`，实现
-“不存在则写入并设置 TTL”，并完全替代本机缓存。外部存储异常会 fail closed，不会回退到
-Caffeine。
+默认不启用防重放，与 `capjs-core` 的未配置 `consumeNonce` 语义一致。需要一次性兑换时，必须显式
+配置原子的 `NonceConsumer`，以 challenge JWT 签名为 key 执行“不存在则写入并设置 TTL”。
+`CaffeineNonceConsumer` 适用于单 JVM；多实例必须使用 JDBC、Redis 或其他共享存储。consumer 失败时
+兑换 fail closed，返回 `nonce_store_error`，不会回退到其他存储。
+
+单 JVM 可显式使用 Caffeine：
+
+```java
+import github.luckygc.cap.replay.CaffeineNonceConsumer;
+
+Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
+        .nonceConsumer(new CaffeineNonceConsumer(100_000))
+        .build();
+```
 
 JDBC 模块使用数据库唯一约束完成原子消费：
 
@@ -227,8 +236,7 @@ static Cap createRedisCap(StatefulRedisConnection<String, String> connection) {
 `LettuceNonceConsumer` 使用单条 `SET key 1 NX PX ttlMillis`。commands、底层连接或连接池及有界超时
 都由调用方拥有和管理，consumer 不会关闭或重配它们。`NonceConsumer` 在兑换线程同步执行，必须线程
 安全且有界。完整的存储选择、DDL、清理和时钟要求见
-[防重放存储部署指南](docs/replay-storage.md)。除非外层已有等价且经过审计的原子防重放机制，不要调用
-`disableReplayProtection()`。
+[防重放存储部署指南](docs/replay-storage.md)。
 
 ## 业务 token 与 tokenKey
 
@@ -270,7 +278,6 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
                 .tokenTtl(Duration.ofMinutes(15))
                 .build())
         .format1(50, 32, 4)
-        .nonceCacheMaximumSize(200_000)
         .eventListener(listener)
         .build();
 ```
@@ -287,7 +294,7 @@ Cap cap = Cap.builder(System.getenv("CAP_SECRET"))
 
 - 用 `Cap.builder(secret).build()` 替代 `CapManager.builder()`；
 - challenge 可直接返回 `ChallengeResponse`；redeem 使用显式 wire DTO/adapter 处理 snake_case；
-- 用 `NonceConsumer` 或默认 Caffeine cache 替代 challenge 存储；
+- 需要一次性兑换时，用 `NonceConsumer` 显式配置 challenge 防重放；
 - 兑换成功后保存 `tokenKey`，不要再调用 `validateCapToken(...)`；
 - 集群中为所有实例配置同一 `secret`、RSW key pair 和共享 `NonceConsumer`。
 

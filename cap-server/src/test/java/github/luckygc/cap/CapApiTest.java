@@ -332,7 +332,6 @@ class CapApiTest {
                         .rswKeyPair(keyPair)
                         .rswIterations(1)
                         .instrumentation(instrumentation)
-                        .nonceCacheMaximumSize(1)
                         .nonceConsumer(consumer)
                         .tokenSigner(signer)
                         .eventListener(listener)
@@ -353,22 +352,12 @@ class CapApiTest {
     }
 
     @Test
-    @DisplayName("外部 nonce 消费器与禁用重放保护互斥")
-    void replayProtectionConfigurationIsMutuallyExclusive() {
-        NonceConsumer consumer = (signature, ttl) -> true;
-
-        assertThatIllegalArgumentException()
-                .isThrownBy(
-                        () ->
-                                Cap.builder("0123456789abcdef")
-                                        .nonceConsumer(consumer)
-                                        .disableReplayProtection());
-        assertThatIllegalArgumentException()
-                .isThrownBy(
-                        () ->
-                                Cap.builder("0123456789abcdef")
-                                        .disableReplayProtection()
-                                        .nonceConsumer(consumer));
+    @DisplayName("Builder 不暴露旧 replay 默认配置")
+    void builderDoesNotExposeLegacyReplayConfiguration() {
+        assertThatThrownBy(() -> CapBuilder.class.getMethod("disableReplayProtection"))
+                .isInstanceOf(NoSuchMethodException.class);
+        assertThatThrownBy(() -> CapBuilder.class.getMethod("nonceCacheMaximumSize", long.class))
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     @Test

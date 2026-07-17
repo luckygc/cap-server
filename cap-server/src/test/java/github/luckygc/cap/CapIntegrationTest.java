@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import github.luckygc.cap.internal.crypto.EncryptedMetadataCodec;
 import github.luckygc.cap.internal.crypto.JwtCodec;
+import github.luckygc.cap.replay.CaffeineNonceConsumer;
 import github.luckygc.cap.utils.RandomUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -30,8 +31,8 @@ class CapIntegrationTest {
     private static final String SECRET = "0123456789abcdef0123456789abcdef";
 
     @Test
-    @DisplayName("默认模式可创建、兑换并阻止重复兑换")
-    void createsRedeemsAndRejectsReplayInDefaultProfile() {
+    @DisplayName("默认模式可创建并允许重复兑换")
+    void createsRedeemsWithoutReplayProtectionInDefaultProfile() {
         Cap cap = Cap.builder(SECRET).format1(1, 4, 1).build();
         ChallengeResponse.Format1 challenge = (ChallengeResponse.Format1) cap.createChallenge();
         RedeemRequest request = solve(challenge);
@@ -44,13 +45,17 @@ class CapIntegrationTest {
         RedeemResult.Success success = (RedeemResult.Success) first;
         assertThat(success.token()).contains(":");
         assertThat(success.tokenKey()).contains(":");
-        assertFailure(second, "already_redeemed");
+        assertThat(second).isInstanceOf(RedeemResult.Success.class);
     }
 
     @Test
-    @DisplayName("本机 nonce 容量满时 fail closed 为 nonce_store_error")
+    @DisplayName("显式本机 nonce consumer 容量满时 fail closed 为 nonce_store_error")
     void mapsLocalNonceCapacityExhaustionToStoreError() {
-        Cap cap = Cap.builder(SECRET).format1(1, 4, 1).nonceCacheMaximumSize(1).build();
+        Cap cap =
+                Cap.builder(SECRET)
+                        .format1(1, 4, 1)
+                        .nonceConsumer(new CaffeineNonceConsumer(1))
+                        .build();
         RedeemRequest first = solve((ChallengeResponse.Format1) cap.createChallenge());
         RedeemRequest second = solve((ChallengeResponse.Format1) cap.createChallenge());
 
@@ -74,7 +79,6 @@ class CapIntegrationTest {
                         .format1(1, 4, 1)
                         .challengeDefaults(configuredChallenge)
                         .redeemDefaults(configuredRedeem)
-                        .disableReplayProtection()
                         .build();
 
         ChallengeResponse.Format1 configured = (ChallengeResponse.Format1) cap.createChallenge();
@@ -146,7 +150,6 @@ class CapIntegrationTest {
                                         .level(0)
                                         .blockAutomatedBrowsers(true)
                                         .build())
-                        .disableReplayProtection()
                         .build();
         ChallengeResponse.Format1 challenge = (ChallengeResponse.Format1) cap.createChallenge();
         RedeemRequest solved = solve(challenge);
@@ -209,7 +212,6 @@ class CapIntegrationTest {
         Cap cap =
                 Cap.builder(SECRET)
                         .format1(1, 4, 1)
-                        .disableReplayProtection()
                         .tokenSigner(
                                 (scope, expiresAt, issuedAt) -> {
                                     invocation.add(scope);
@@ -256,8 +258,8 @@ class CapIntegrationTest {
     }
 
     @Test
-    @DisplayName("外部 nonce consumer 完全替代本机 replay cache")
-    void externalNonceConsumerCompletelyReplacesLocalCache() {
+    @DisplayName("外部 nonce consumer 决定 replay 处理")
+    void externalNonceConsumerDecidesReplayHandling() {
         AtomicInteger calls = new AtomicInteger();
         Cap cap =
                 Cap.builder(SECRET)
@@ -276,16 +278,6 @@ class CapIntegrationTest {
     }
 
     @Test
-    @DisplayName("禁用 replay protection 时同一 challenge 可重复兑换")
-    void disablingReplayProtectionDoesNotClaim() {
-        Cap cap = Cap.builder(SECRET).format1(1, 4, 1).disableReplayProtection().build();
-        RedeemRequest request = solve((ChallengeResponse.Format1) cap.createChallenge());
-
-        assertThat(cap.redeem(request)).isInstanceOf(RedeemResult.Success.class);
-        assertThat(cap.redeem(request)).isInstanceOf(RedeemResult.Success.class);
-    }
-
-    @Test
     @DisplayName("listener 异常被隔离且成功失败事件各计数一次")
     void isolatesListenerAndCountsEvents() {
         AtomicInteger creates = new AtomicInteger();
@@ -294,6 +286,7 @@ class CapIntegrationTest {
         Cap cap =
                 Cap.builder(SECRET)
                         .format1(1, 4, 1)
+                        .nonceConsumer(new CaffeineNonceConsumer())
                         .eventListener(
                                 new CapEventListener() {
                                     @Override
@@ -333,7 +326,11 @@ class CapIntegrationTest {
     @Test
     @DisplayName("并发重复兑换恰有一个成功")
     void concurrentReplayHasExactlyOneWinner() throws Exception {
-        Cap cap = Cap.builder(SECRET).format1(1, 4, 1).build();
+        Cap cap =
+                Cap.builder(SECRET)
+                        .format1(1, 4, 1)
+                        .nonceConsumer(new CaffeineNonceConsumer())
+                        .build();
         RedeemRequest request = solve((ChallengeResponse.Format1) cap.createChallenge());
         var executor = Executors.newFixedThreadPool(8);
         try {
@@ -457,7 +454,6 @@ class CapIntegrationTest {
         Cap cap =
                 Cap.builder(SECRET)
                         .format1(1, 4, 1)
-                        .disableReplayProtection()
                         .tokenSigner(
                                 (scope, expires, issuedAt) -> {
                                     throw new Exception("sensitive-signer-message");

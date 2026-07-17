@@ -156,10 +156,11 @@ instrumentation 类失败在核心 API 中的 `instrError` 为 `true`，Web adap
 
 ## 防重放存储兼容性
 
-核心模块默认使用 `CaffeineNonceConsumer`，`cap-server-jdbc` 提供 `JdbcNonceConsumer`，
-`cap-server-redis` 提供 `LettuceNonceConsumer`。三种实现只改变消费状态保存位置，不改变协议 wire、
-失败码或 TTL 语义：防重放 key 始终是 challenge JWT 签名的 64 字符小写十六进制，成功消费后直到
-challenge 剩余 TTL 到期都必须拒绝重放。Caffeine 仅适用于单 JVM；多实例必须共享同一个原子存储。
+核心模块默认不配置 `NonceConsumer`，与上游未提供 `consumeNonce` 时的无状态行为一致。显式配置
+`CaffeineNonceConsumer`、`JdbcNonceConsumer` 或 `LettuceNonceConsumer` 后才启用防重放。三种实现只改变
+消费状态保存位置，不改变协议 wire、失败码或 TTL 语义：防重放 key 始终是 challenge JWT 签名的 64 字符
+小写十六进制，成功消费后直到 challenge 剩余 TTL 到期都必须拒绝重放。Caffeine 仅适用于单 JVM；多实例
+必须共享同一个原子存储。
 
 外部存储失败统一 fail closed 为 `nonce_store_error`，不会回退到本机 Caffeine。数据库迁移、Redis
 命令、过期清理和时钟边界见[防重放存储部署指南](replay-storage.md)。
@@ -188,7 +189,7 @@ Chromium。显式 profile 严格校验 `package-lock.json` 中三个包的 versi
 步骤；固定诊断与 hint 不包含实际本机路径或敏感值。
 
 测试在真实 Chromium 中只加载回环 server 提供的本地 widget/WASM，不访问 CDN；请求经真实 loopback
-HTTP 到达 Java `Cap`。场景覆盖 Format 1 成功、浏览器原始 redeem body 重放返回
+HTTP 到达 Java `Cap`。Format 1 E2E 场景显式配置 Caffeine 防重放，覆盖浏览器原始 redeem body 重放返回
 `already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截。
 STRICT 的后端 403 为 `reason/error=instr_automated_browser` 且 `instr_error=true`；固定 widget 的
 `solve()` rejection message 为 `instr_automated_browser`，error event code 是其统一映射
@@ -299,6 +300,6 @@ headless Chromium 若返回普通 `result.i` 路径或没有触发 blocked，命
 
 1. 用 `Cap.builder(secret)` 创建单例门面；
 2. challenge 可直接序列化 `ChallengeResponse`；redeem 使用显式 DTO/adapter 映射 snake_case；
-3. challenge 状态由签名/加密 JWT 携带，单 JVM 防重放由 Caffeine 负责，多实例改用 JDBC、Redis 或其他共享原子 `NonceConsumer`；
+3. challenge 状态由签名/加密 JWT 携带；默认不防重放，需一次性兑换时显式配置 Caffeine、JDBC、Redis 或其他原子 `NonceConsumer`；
 4. 兑换成功后保存 `tokenKey` 与授权上下文，客户端只持有 `token`；
 5. 集群实例共享 `secret`、RSW key pair 和原子 nonce 存储。

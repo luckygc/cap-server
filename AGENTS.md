@@ -66,7 +66,7 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 - 默认 `mvn test` / `mvn verify` 只依赖 Java 17，不执行也不 skip `WidgetBrowserIT`，不探测 Node 或 Chromium。
 - 显式 profile 缺少 `package-lock.json`、精确 version/resolved URL/integrity、Node、Chromium 或 artifact 文件时必须硬失败，不能静默 skip。
 - 空或非法 `cap.widget.dir`、Node 启动、artifact 校验或 Chromium 启动失败时，错误显示固定类别，并附带使用临时目录安装上述精确版本、安装 Chromium 及传入 `-Dcap.widget.dir` 的可执行准备命令；固定诊断与 hint 不得回显本机路径或敏感值。
-- E2E 在真实 Chromium 中只加载本地 widget/WASM，经真实回环 HTTP 覆盖 Format 1 成功、原始 redeem replay=`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截=`instr_automated_browser`；浏览器不得访问 CDN。
+- E2E 在真实 Chromium 中只加载本地 widget/WASM；Format 1 replay 场景必须显式配置 Caffeine `NonceConsumer`，经真实回环 HTTP 覆盖成功、原始 redeem replay=`already_redeemed`、Format 1 instrumentation 成功、Format 2 RSW 成功，以及 STRICT 自动化拦截=`instr_automated_browser`；浏览器不得访问 CDN。
 - Java 测试仅在内存记录脱敏协议事实：challenge 类型、instrumentation 是否存在、Format 2 协议名顺序，以及 redeem 的 instrumentation flags、solution 数量和 shape；不得保存原始 challenge token、redeem body 或 solution。
 - STRICT 页面通过 init script 植入固定的标准自动化标记；按 iframe init 时 `documentElement` 尚为空计算，仍有 11 类稳定命中，使随机抽取 8 项的默认 instrumentation 检查必然命中；不得改用重试，也不得替换 production generator 或 transformer。
 - E2E 输出不得包含 secret、JWT、solution、业务 token 或 tokenKey。测试 server 只验证互操作；库仍不提供 Web 框架、JSON databind、认证、CORS 或 CSRF，实际端点与边界策略由宿主应用负责。
@@ -89,7 +89,7 @@ mise exec maven -- mvn -Pwidget-e2e -Dcap.widget.dir="$tmp" verify
 - STRICT 是 Format 2，默认顺序为 RSW、instrumentation，默认 2048-bit RSW、`t=75000`、instrumentation level 3 且拦截自动化浏览器。
 - `protocols(...)` 的 Format 2 语义与上游一致：空参数回退为 RSW，重复协议按输入顺序保留，null 数组或元素非法。
 - challenge JWT 使用 HS256；Format 2 元数据 AES-GCM key 为 `HMAC-SHA256(secret, "cap:fmt2-v1")`，无 AAD，wire 为 `iv || tag || ciphertext`。Format 1 instrumentation 使用 info `cap:enc-v1`。
-- 默认 Caffeine nonce consumer 仅保证单 JVM 原子消费；集群必须配置共享、原子的 `NonceConsumer`。
+- 默认不启用防重放，与 capjs-core 未配置 `consumeNonce` 的语义一致；显式 Caffeine nonce consumer 仅保证单 JVM 原子消费，集群必须配置共享、原子的 `NonceConsumer`。
 - JDBC `DataSource` 每次必须返回独立、`autoCommit=true` 且不绑定宿主事务的连接；迁移与定时清理由宿主应用负责。
 - Lettuce commands、连接或连接池及超时由调用方拥有；外部存储失败必须 fail closed，不得回退到 Caffeine。
 - 防重放 key 是 challenge JWT 签名的十六进制，成功消费后直到 challenge 剩余 TTL 到期都应拒绝重放。

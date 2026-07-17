@@ -2,7 +2,6 @@ package github.luckygc.cap;
 
 import github.luckygc.cap.internal.DefaultCap;
 import github.luckygc.cap.internal.rsw.RswSupport;
-import github.luckygc.cap.replay.CaffeineNonceConsumer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
@@ -22,9 +21,7 @@ public final class CapBuilder {
     private int rswIterations = RswSupport.DEFAULT_T;
     private InstrumentationOptions instrumentation = InstrumentationOptions.defaults();
     private boolean instrumentationConfigured;
-    private long nonceCacheMaximumSize = CaffeineNonceConsumer.DEFAULT_MAXIMUM_SIZE;
     private @Nullable NonceConsumer nonceConsumer;
-    private boolean replayProtectionDisabled;
     private @Nullable TokenSigner tokenSigner;
     private CapEventListener eventListener = new CapEventListener() {};
 
@@ -90,33 +87,13 @@ public final class CapBuilder {
         return this;
     }
 
-    /** 设置本机 nonce cache 的硬容量；TTL 内签名不会被淘汰，容量满时兑换返回 {@code nonce_store_error}。 */
-    public CapBuilder nonceCacheMaximumSize(long maximumSize) {
-        this.nonceCacheMaximumSize = maximumSize;
-        return this;
-    }
-
     /**
-     * 使用外部原子 nonce consumer 完全替代本机缓存。
+     * 配置原子 nonce consumer 以启用防重放。
      *
      * <p>consumer 在 redeem 调用线程同步执行，必须是可信且线程安全的；其阻塞和外部副作用由调用方负责。
      */
     public CapBuilder nonceConsumer(NonceConsumer consumer) {
-        Objects.requireNonNull(consumer, "consumer");
-        if (replayProtectionDisabled) {
-            throw new IllegalArgumentException(
-                    "nonceConsumer and disableReplayProtection are mutually exclusive");
-        }
-        this.nonceConsumer = consumer;
-        return this;
-    }
-
-    public CapBuilder disableReplayProtection() {
-        if (nonceConsumer != null) {
-            throw new IllegalArgumentException(
-                    "nonceConsumer and disableReplayProtection are mutually exclusive");
-        }
-        replayProtectionDisabled = true;
+        nonceConsumer = Objects.requireNonNull(consumer, "consumer");
         return this;
     }
 
@@ -172,9 +149,7 @@ public final class CapBuilder {
                 rswIterations,
                 profile == CapProfile.DEFAULT && instrumentationConfigured ? instrumentation : null,
                 strictInstrumentation,
-                nonceCacheMaximumSize,
                 nonceConsumer,
-                replayProtectionDisabled,
                 tokenSigner,
                 eventListener);
     }

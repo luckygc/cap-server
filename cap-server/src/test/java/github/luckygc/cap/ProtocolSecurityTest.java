@@ -3,6 +3,7 @@ package github.luckygc.cap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
+import github.luckygc.cap.replay.CaffeineNonceConsumer;
 import github.luckygc.cap.utils.RandomUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -215,7 +216,10 @@ class ProtocolSecurityTest {
     }
 
     private static Cap format1Cap() {
-        return Cap.builder(SECRET).format1(1, 4, 1).build();
+        return Cap.builder(SECRET)
+                .format1(1, 4, 1)
+                .nonceConsumer(new CaffeineNonceConsumer())
+                .build();
     }
 
     private static Cap format2Cap() {

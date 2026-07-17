@@ -13,6 +13,7 @@ import github.luckygc.cap.RedeemRequest;
 import github.luckygc.cap.RedeemResult;
 import github.luckygc.cap.RswKeyPair;
 import github.luckygc.cap.internal.json.ProtocolJsonCodec;
+import github.luckygc.cap.replay.CaffeineNonceConsumer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -293,7 +294,10 @@ class WidgetBrowserIT {
             scenarios.put(
                     "format1",
                     new Scenario(
-                            Cap.builder("widget-e2e-format1-secret").format1(2, 8, 2).build()));
+                            Cap.builder("widget-e2e-format1-secret")
+                                    .format1(2, 8, 2)
+                                    .nonceConsumer(new CaffeineNonceConsumer())
+                                    .build()));
             scenarios.put(
                     "instrumented",
                     new Scenario(

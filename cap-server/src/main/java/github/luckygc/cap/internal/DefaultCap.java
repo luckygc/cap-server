@@ -19,7 +19,6 @@ import github.luckygc.cap.internal.protocol.Format2Protocol;
 import github.luckygc.cap.internal.protocol.ProtocolFailure;
 import github.luckygc.cap.internal.rsw.RswSupport;
 import github.luckygc.cap.internal.token.DefaultTokenSigner;
-import github.luckygc.cap.replay.CaffeineNonceConsumer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -56,9 +55,7 @@ public final class DefaultCap implements Cap {
             int rswIterations,
             @Nullable InstrumentationOptions format1Instrumentation,
             InstrumentationOptions format2Instrumentation,
-            long nonceCacheMaximumSize,
             @Nullable NonceConsumer configuredNonceConsumer,
-            boolean replayProtectionDisabled,
             @Nullable TokenSigner tokenSigner,
             CapEventListener eventListener) {
         this.format = format;
@@ -94,12 +91,7 @@ public final class DefaultCap implements Cap {
                                 format2Instrumentation)
                         : null;
         jwt = new JwtCodec(secret);
-        nonceConsumer =
-                replayProtectionDisabled
-                        ? null
-                        : configuredNonceConsumer != null
-                                ? configuredNonceConsumer
-                                : new CaffeineNonceConsumer(nonceCacheMaximumSize);
+        nonceConsumer = configuredNonceConsumer;
         this.tokenSigner = tokenSigner;
         defaultTokenSigner = new DefaultTokenSigner();
         events = new CapEvents(eventListener);
