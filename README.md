@@ -17,7 +17,7 @@
 <dependency>
     <groupId>com.github.luckygc</groupId>
     <artifactId>cap-server</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 </dependency>
 ```
 
@@ -27,7 +27,7 @@
 <dependency>
     <groupId>com.github.luckygc</groupId>
     <artifactId>cap-server-jdbc</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 </dependency>
 ```
 
@@ -37,7 +37,7 @@
 <dependency>
     <groupId>com.github.luckygc</groupId>
     <artifactId>cap-server-redis</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 </dependency>
 ```
 

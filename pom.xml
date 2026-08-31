@@ -6,7 +6,7 @@
 
     <groupId>com.github.luckygc</groupId>
     <artifactId>cap-server-parent</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
     <packaging>pom</packaging>
     <name>cap-server parent</name>
     <description>capjs server端方法实现</description>
