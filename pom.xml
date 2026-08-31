@@ -35,7 +35,7 @@
         <assertj.version>3.27.7</assertj.version>
         <lettuce.version>7.6.0.RELEASE</lettuce.version>
         <testcontainers.version>2.0.5</testcontainers.version>
-        <postgresql.version>42.7.11</postgresql.version>
+        <postgresql.version>42.7.12</postgresql.version>
         <mysql.version>9.7.0</mysql.version>
         <mariadb.version>3.5.9</mariadb.version>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
