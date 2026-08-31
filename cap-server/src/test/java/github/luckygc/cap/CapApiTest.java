@@ -74,10 +74,10 @@ class CapApiTest {
                 ChallengeOptions.class.getDeclaredMethod("extra").getAnnotatedReturnType();
         assertJsonValueTypeIsNullable(extraType, 1);
         assertJsonValueTypeIsNullable(
-                recordComponent(ChallengeResponse.ProtocolChallenge.class, "payload"), 1);
-        assertJsonValueTypeIsNullable(recordComponent(RedeemRequest.class, "solutions"), 0);
+                recordAccessorType(ChallengeResponse.ProtocolChallenge.class, "payload"), 1);
+        assertJsonValueTypeIsNullable(recordAccessorType(RedeemRequest.class, "solutions"), 0);
         assertJsonValueTypeIsNullable(
-                recordComponent(RedeemRequest.InstrumentationResult.class, "state"), 1);
+                recordAccessorType(RedeemRequest.InstrumentationResult.class, "state"), 1);
     }
 
     @Test
@@ -428,10 +428,11 @@ class CapApiTest {
                 .as("invalid JSON leaf: %s", value);
     }
 
-    private static AnnotatedType recordComponent(Class<?> recordType, String name) {
+    /** 返回 record 公开访问器的带注解返回类型。 */
+    private static AnnotatedType recordAccessorType(Class<?> recordType, String name) {
         for (RecordComponent component : recordType.getRecordComponents()) {
             if (component.getName().equals(name)) {
-                return component.getAnnotatedType();
+                return component.getAccessor().getAnnotatedReturnType();
             }
         }
         throw new AssertionError("record component not found: " + name);

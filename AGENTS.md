@@ -38,7 +38,7 @@ mise exec maven -- mvn -pl cap-server -am -Dcap.nodeChecks=true -Dtest=Instrumen
 mise exec maven -- mvn -Pstore-integration verify
 ```
 
-- `spotless:apply` 使用 Google Java Format AOSP 风格自动格式化 Java；不要手工绕过格式检查。
+- `spotless:apply` 使用固定为 1.28.0 的 Google Java Format AOSP 风格自动格式化 Java，以保持 Java 17 构建兼容；不要手工绕过格式检查。
 - `test` 必须实际执行测试，不允许出现 `Tests are skipped.`。
 - `verify` 必须通过 Spotless、全部测试和打包。
 - 使用 `-Dtest=类名` 或 `-Dtest=类名#方法名` 运行聚焦测试。
