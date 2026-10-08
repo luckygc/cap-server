@@ -27,7 +27,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
-        <jackson-core.version>3.2.1</jackson-core.version>
+        <jackson-core.version>3.2.3</jackson-core.version>
         <caffeine.version>3.2.4</caffeine.version>
         <slf4j.version>2.0.18</slf4j.version>
         <jspecify.version>1.0.0</jspecify.version>
